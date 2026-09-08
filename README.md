@@ -17,6 +17,8 @@ bench --site <site> install-app dinext_raven
 
 `install-app dinext_raven` fails unless `raven` is already installed on the site.
 
+Ephemeral app CI clones upstream Raven from GitHub using the SHA pin in Control Center `inventory/app-ci-dependencies.yaml`. This repository is the overlay only; it is not a Raven fork.
+
 ## License
 
 mit

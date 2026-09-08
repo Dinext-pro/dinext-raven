@@ -1,33 +1,22 @@
-### Dinext Raven
+# Dinext Raven
 
-Dinext overlay for Raven messaging
+Empty Dinext product overlay for the installed Raven messaging app. Customizations belong here; upstream `raven` stays a separate application.
 
-### Installation
+**Required apps:** `dinext_common`, `raven`
 
-You can install this app using the [bench](https://github.com/frappe/bench) CLI:
+**GitLab:** https://dinext.gitlab.yandexcloud.net/erpnext/dinext/dinext-raven
+
+## Installation
 
 ```bash
 cd $PATH_TO_YOUR_BENCH
-bench get-app $URL_OF_THIS_REPO --branch develop
-bench install-app dinext_raven
+bench get-app https://dinext.gitlab.yandexcloud.net/erpnext/dinext/dinext-raven.git --branch develop
+bench --site <site> install-app raven
+bench --site <site> install-app dinext_raven
 ```
 
-### Contributing
+`install-app dinext_raven` fails unless `raven` is already installed on the site.
 
-This app uses `pre-commit` for code formatting and linting. Please [install pre-commit](https://pre-commit.com/#installation) and enable it for this repository:
-
-```bash
-cd apps/dinext_raven
-pre-commit install
-```
-
-Pre-commit is configured to use the following tools for checking and formatting your code:
-
-- ruff
-- eslint
-- prettier
-- pyupgrade
-
-### License
+## License
 
 mit

@@ -1,0 +1,58 @@
+/* Desk Raven widget: no extra page scroll; collapsed bar is narrower and translucent. */
+
+.main-section {
+	padding-bottom: 0 !important;
+}
+
+.send-raven-button {
+	display: none !important;
+}
+
+.raven-chat {
+	position: fixed !important;
+	bottom: 0;
+	left: 60px;
+	margin: 0;
+	max-height: calc(100dvh - 48px);
+}
+
+.raven-container[data-open-state="true"] {
+	height: min(var(--raven-expanded-height, 84vh), calc(100dvh - 48px)) !important;
+	overflow: hidden;
+}
+
+.raven-chat:has(.raven-container[data-open-state="false"]) {
+	width: calc(var(--raven-content-width, 400px) * 2 / 3);
+	height: var(--raven-header-height, 42px);
+	box-sizing: border-box;
+	overflow: hidden !important;
+	opacity: 0.7;
+	background-color: color-mix(in srgb, var(--bg-color) 70%, transparent);
+	transition: width 0.2s ease, opacity 0.2s ease, background-color 0.2s ease;
+}
+
+.raven-chat:has(.raven-container[data-open-state="false"]):hover,
+.raven-chat:has(.raven-container[data-open-state="false"]):focus-within {
+	opacity: 1;
+}
+
+.raven-chat:has(.raven-container[data-open-state="true"]) {
+	width: var(--raven-content-width, 400px);
+	height: auto;
+	opacity: 1;
+}
+
+html.dinext-raven-no-page-scroll {
+	overflow-y: hidden !important;
+}
+
+.dinext-raven-timeline-controls {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	margin-right: 4px;
+}
+
+.dinext-raven-timeline-controls .dropdown-menu {
+	min-width: 12rem;
+}

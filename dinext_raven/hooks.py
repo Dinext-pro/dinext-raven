@@ -28,7 +28,7 @@ required_apps = ["dinext_common", "raven"]
 app_include_css = "/assets/dinext_raven/css/dinext_raven.css?v=collapsed-overflow-1"
 app_include_js = [
 	"/assets/dinext_raven/js/dinext_raven_widget.js?v=collapsed-overflow-1",
-	"/assets/dinext_raven/js/dinext_raven_discuss.js?v=project-channel-icon-1",
+	"/assets/dinext_raven/js/dinext_raven_discuss.js?v=channel-switch-1",
 ]
 
 # include js, css files in header of web template

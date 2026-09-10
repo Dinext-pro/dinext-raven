@@ -46,6 +46,10 @@ html.dinext-raven-no-page-scroll {
 	overflow-y: hidden !important;
 }
 
+.timeline-actions .action-buttons:has(.dinext-raven-timeline-controls) {
+	overflow: visible;
+}
+
 .dinext-raven-timeline-controls {
 	display: inline-flex;
 	align-items: center;
@@ -53,6 +57,10 @@ html.dinext-raven-no-page-scroll {
 	margin-right: 4px;
 }
 
+.dinext-raven-timeline-controls .inner-group-button {
+	display: inline-flex;
+}
+
 .dinext-raven-timeline-controls .dropdown-menu {
-	min-width: 12rem;
+	width: max-content;
 }

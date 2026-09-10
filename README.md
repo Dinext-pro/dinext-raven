@@ -136,7 +136,9 @@ Raven. Pin не добавляет Raven или `dinext_raven` в production-mem
 ### Discuss на форме
 
 На сохранённом документе, который можно обсуждать, timeline показывает
-`.dinext-raven-timeline-controls` вместо кнопки Send a Raven.
+`.dinext-raven-timeline-controls` вместо кнопки Send a Raven. Меню Discuss
+и Channels — Desk `inner-group-button` (как grouped `add_inner_button`),
+не самодельный `btn-group`.
 
 | Связанных каналов | UI |
 | --- | --- |

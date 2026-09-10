@@ -237,13 +237,36 @@ dinext_raven.show_create_channel_dialog = function (frm, on_created) {
 	});
 };
 
-dinext_raven.dropdown_item = function (label, handler) {
-	const item = $(`<a class="dropdown-item" href="#">${frappe.utils.escape_html(label)}</a>`);
-	item.on("click", function (event) {
-		event.preventDefault();
+dinext_raven.make_group_button = function (label) {
+	return $(`
+		<div class="inner-group-button" data-label="${encodeURIComponent(label)}">
+			<button type="button" class="btn btn-xs btn-default ellipsis" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+				${frappe.utils.escape_html(label)}
+				${frappe.utils.icon("select", "xs")}
+			</button>
+			<div role="menu" class="dropdown-menu"></div>
+		</div>
+	`);
+};
+
+dinext_raven.add_group_button_item = function ($group, label, handler) {
+	const item = $(
+		`<a class="dropdown-item" href="#" onclick="return false;" data-label="${encodeURIComponent(
+			label
+		)}">${frappe.utils.escape_html(label)}</a>`
+	);
+	item.on("click", function () {
 		handler();
 	});
-	return $("<li>").append(item);
+	$group.find(".dropdown-menu").append(item);
+	return item;
+};
+
+dinext_raven.init_group_button = function ($group) {
+	const button = $group.find("[data-toggle='dropdown']");
+	if (button.length && button.dropdown) {
+		button.dropdown({ boundary: "viewport" });
+	}
 };
 
 dinext_raven.render_discuss = function (frm) {
@@ -275,49 +298,39 @@ dinext_raven.render_discuss = function (frm) {
 				});
 				wrap.append(open_btn);
 			} else if (channels.length > 1) {
-				const channels_menu = $(`
-					<div class="btn-group">
-						<button type="button" class="btn btn-xs btn-default dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-							${__("Channels", null, DINEXT_RAVEN_CTX)}
-						</button>
-						<ul class="dropdown-menu"></ul>
-					</div>
-				`);
-				const list = channels_menu.find("ul");
+				const channels_menu = dinext_raven.make_group_button(
+					__("Channels", null, DINEXT_RAVEN_CTX)
+				);
 				channels.forEach((channel) => {
-					list.append(
-						dinext_raven.dropdown_item(channel.channel_name, function () {
-							dinext_raven.open_channel(channel);
-						})
-					);
+					dinext_raven.add_group_button_item(channels_menu, channel.channel_name, function () {
+						dinext_raven.open_channel(channel);
+					});
 				});
 				wrap.append(channels_menu);
 			}
 
-			const discuss = $(`
-				<div class="btn-group">
-					<button type="button" class="btn btn-xs btn-default dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-						${__("Discuss", null, DINEXT_RAVEN_CTX)}
-					</button>
-					<ul class="dropdown-menu">
-					</ul>
-				</div>
-			`);
-			const discuss_list = discuss.find("ul");
-			discuss_list.append(
-				dinext_raven.dropdown_item(__("Send to chat or channel", null, DINEXT_RAVEN_CTX), function () {
+			const discuss = dinext_raven.make_group_button(__("Discuss", null, DINEXT_RAVEN_CTX));
+			dinext_raven.add_group_button_item(
+				discuss,
+				__("Send to chat or channel", null, DINEXT_RAVEN_CTX),
+				function () {
 					dinext_raven.trigger_send_raven(frm);
-				})
+				}
 			);
-			discuss_list.append(
-				dinext_raven.dropdown_item(__("Create channel", null, DINEXT_RAVEN_CTX), function () {
+			dinext_raven.add_group_button_item(
+				discuss,
+				__("Create channel", null, DINEXT_RAVEN_CTX),
+				function () {
 					dinext_raven.show_create_channel_dialog(frm, function () {
 						dinext_raven.render_discuss(frm);
 					});
-				})
+				}
 			);
 			wrap.append(discuss);
 			actions.prepend(wrap);
+			wrap.find(".inner-group-button").each(function () {
+				dinext_raven.init_group_button($(this));
+			});
 		},
 	});
 };

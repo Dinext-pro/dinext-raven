@@ -29,6 +29,7 @@ dinext_raven.can_discuss = function (frm) {
 };
 
 dinext_raven.WIDGET_OPEN_TIMEOUT_MS = 8000;
+dinext_raven._open_channel_generation = 0;
 
 dinext_raven.widget_container = function () {
 	return document.querySelector(".raven-container");
@@ -37,6 +38,50 @@ dinext_raven.widget_container = function () {
 dinext_raven.widget_content = function () {
 	const root = dinext_raven.widget_container();
 	return root ? root.querySelector(".raven-content-container") : null;
+};
+
+dinext_raven.widget_toggle_button = function (root) {
+	return root
+		? root.querySelector(".raven-header > div:not(.raven-channel-header) > .back-button")
+		: null;
+};
+
+dinext_raven.widget_channel_back_button = function (root) {
+	return root ? root.querySelector(".raven-channel-header > .back-button") : null;
+};
+
+dinext_raven.find_channel_list_item = function (root, channel) {
+	if (!root || !channel) {
+		return null;
+	}
+	const items = root.querySelectorAll(".raven-channel-list-item");
+	let match = null;
+	items.forEach(function (item) {
+		const label = item.querySelector(".raven-channel-list-item__name");
+		const text = label ? label.textContent.trim() : "";
+		if (text && (text === channel.channel_name || text === channel.name)) {
+			match = item;
+		}
+	});
+	return match;
+};
+
+dinext_raven.next_widget_open_action = function (state) {
+	const current = (state && state.current) || "";
+	const targetName = (state && state.targetName) || "";
+	if (!(state && state.open)) {
+		return "expand";
+	}
+	if (targetName && current === targetName) {
+		return "done";
+	}
+	if (state && state.hasMatch) {
+		return "select";
+	}
+	if (current) {
+		return "back";
+	}
+	return "wait";
 };
 
 dinext_raven.open_channel = function (channel) {
@@ -50,7 +95,10 @@ dinext_raven.open_channel = function (channel) {
 		});
 		return;
 	}
-	dinext_raven.open_channel_in_widget(channel).catch(function () {
+	dinext_raven.open_channel_in_widget(channel).catch(function (err) {
+		if (err && err.message === "cancelled") {
+			return;
+		}
 		frappe.show_alert({
 			message: __("Could not open the channel in the Raven widget", null, DINEXT_RAVEN_CTX),
 			indicator: "orange",
@@ -59,9 +107,15 @@ dinext_raven.open_channel = function (channel) {
 };
 
 dinext_raven.open_channel_in_widget = function (channel) {
+	const generation = (dinext_raven._open_channel_generation += 1);
 	return new Promise(function (resolve, reject) {
 		const deadline = Date.now() + dinext_raven.WIDGET_OPEN_TIMEOUT_MS;
+		let last_select_current = null;
 		const step = function () {
+			if (generation !== dinext_raven._open_channel_generation) {
+				reject(new Error("cancelled"));
+				return;
+			}
 			const root = dinext_raven.widget_container();
 			if (!root) {
 				reject(new Error("missing widget"));
@@ -71,43 +125,34 @@ dinext_raven.open_channel_in_widget = function (channel) {
 				reject(new Error("timeout"));
 				return;
 			}
-			if (root.getAttribute("data-open-state") !== "true") {
-				const toggle = root.querySelector(".raven-header .back-button");
-				if (toggle) {
-					toggle.click();
-				}
-				setTimeout(step, 100);
-				return;
-			}
 			const content = dinext_raven.widget_content();
-			const current = content && content.getAttribute("data-channel");
-			if (current === channel.name) {
+			const current = (content && content.getAttribute("data-channel")) || "";
+			const match = dinext_raven.find_channel_list_item(root, channel);
+			const action = dinext_raven.next_widget_open_action({
+				open: root.getAttribute("data-open-state") === "true",
+				current: current,
+				targetName: channel.name,
+				hasMatch: !!match,
+			});
+			if (action === "done") {
 				resolve();
 				return;
 			}
-			if (current) {
-				const back = root.querySelector(".raven-channel-header .back-button");
+			if (action === "expand") {
+				const toggle = dinext_raven.widget_toggle_button(root);
+				if (toggle) {
+					toggle.click();
+				}
+			} else if (action === "select" && match && last_select_current !== current) {
+				match.click();
+				last_select_current = current;
+			} else if (action === "back") {
+				const back = dinext_raven.widget_channel_back_button(root);
 				if (back) {
 					back.click();
 				}
-				setTimeout(step, 100);
-				return;
 			}
-			const items = root.querySelectorAll(".raven-channel-list-item");
-			let match = null;
-			items.forEach(function (item) {
-				const label = item.querySelector(".raven-channel-list-item__name");
-				const text = label ? label.textContent.trim() : "";
-				if (text && (text === channel.channel_name || text === channel.name)) {
-					match = item;
-				}
-			});
-			if (match) {
-				match.click();
-				setTimeout(step, 100);
-				return;
-			}
-			setTimeout(step, 150);
+			setTimeout(step, 100);
 		};
 		step();
 	});

@@ -35,6 +35,16 @@ def _parse_list(value) -> list[str]:
 	return [str(item) for item in value if item]
 
 
+def _can_open_channel(channel_name: str) -> bool:
+	"""Raven read policy, including Administrator (no Desk bypass)."""
+	if not channel_name or not frappe.db.exists("Raven Channel", channel_name):
+		return False
+	from raven.permissions import channel_has_permission
+
+	channel = frappe.get_cached_doc("Raven Channel", channel_name)
+	return bool(channel_has_permission(channel, user=frappe.session.user, ptype="read"))
+
+
 def _assert_can_discuss(doctype: str, name: str) -> None:
 	if is_denied_doctype(doctype):
 		frappe.throw(_("This document type cannot have a Raven channel", context=TRANSLATION_CONTEXT))
@@ -85,11 +95,16 @@ def get_accessible_project_channel(project: str) -> dict | None:
 @frappe.whitelist()
 def get_document_channels(doctype: str, name: str) -> list[dict]:
 	_assert_can_discuss(doctype, name)
-	channels = get_linked_channels(doctype, name)
 	workspace = CHAT_WORKSPACE
-	for channel in channels:
+	visible = []
+	for channel in get_linked_channels(doctype, name):
+		if channel.is_archived:
+			continue
+		if not _can_open_channel(channel.name):
+			continue
 		channel["route"] = f"/raven/{channel.workspace or workspace}/{channel.name}"
-	return channels
+		visible.append(channel)
+	return visible
 
 
 @frappe.whitelist()

@@ -260,6 +260,63 @@ class TestDinextRavenDocumentChannels(FrappeTestCase):
 		finally:
 			frappe.set_user("Administrator")
 
+	def test_get_document_channels_filters_unreadable_and_archived(self):
+		if not frappe.db.exists("DocType", "Project"):
+			self.skipTest("Project is not available")
+		if not frappe.db.exists("DocType", "Raven Channel"):
+			self.skipTest("Raven is not installed")
+		ensure_chat_workspace()
+		project = self._make_project()
+		member = self._make_isolated_user("docchan-member", raven_user=True)
+		outsider = self._make_isolated_user("docchan-out", raven_user=True)
+		other = self._make_isolated_user("docchan-other", raven_user=True)
+		self._share_project(project, member)
+		self._share_project(project, outsider)
+
+		readable = create_linked_channel(
+			"Project",
+			project,
+			channel_name=f"visible-{random_string(4)}",
+			channel_type="Private",
+			is_synced=1,
+			members=[member],
+		)
+		hidden = create_linked_channel(
+			"Project",
+			project,
+			channel_name=f"hidden-{random_string(4)}",
+			channel_type="Private",
+			is_synced=0,
+			members=[other],
+		)
+		archived = create_linked_channel(
+			"Project",
+			project,
+			channel_name=f"archived-{random_string(4)}",
+			channel_type="Private",
+			is_synced=0,
+			members=[member],
+		)
+		frappe.db.set_value("Raven Channel", archived, "is_archived", 1)
+
+		try:
+			frappe.set_user(member)
+			names = [row["name"] for row in get_document_channels("Project", project)]
+			self.assertEqual(names, [readable])
+
+			frappe.set_user(outsider)
+			self.assertEqual(get_document_channels("Project", project), [])
+
+			frappe.set_user("Administrator")
+			admin_names = [row["name"] for row in get_document_channels("Project", project)]
+			self.assertNotIn(readable, admin_names)
+			self.assertNotIn(archived, admin_names)
+			self.assertEqual(admin_names, [hidden])
+		finally:
+			frappe.set_user("Administrator")
+
+		self.assertTrue(frappe.db.exists("Raven Channel", hidden))
+
 	def _make_project(self) -> str:
 		name = f"RAVEN-ICON-{random_string(6)}"
 		project = frappe.get_doc(

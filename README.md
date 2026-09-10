@@ -140,7 +140,13 @@ Raven. Pin не добавляет Raven или `dinext_raven` в production-mem
 и Channels — Desk `inner-group-button` (как grouped `add_inner_button`),
 не самодельный `btn-group`.
 
-| Связанных каналов | UI |
+`get_document_channels` отдаёт только неархивные связанные каналы, которые
+текущий пользователь может открыть в виджете по правилам Raven (Private —
+член канала, Public/Open — член chat workspace). Обход Administrator в
+`frappe.has_permission` сюда не входит. 0/1/many на timeline считается по
+этому списку. Discuss остаётся, даже если доступных каналов нет.
+
+| Доступных каналов | UI |
 | --- | --- |
 | 0 | Только меню Discuss |
 | 1 | Иконка канала + Discuss |

@@ -14,6 +14,7 @@ from dinext_raven.document_channels.service import (
 	get_assignees,
 	get_linked_channels,
 	get_share_users,
+	get_synced_channel,
 	is_denied_doctype,
 	user_has_document_relationship,
 )
@@ -43,6 +44,42 @@ def _assert_can_discuss(doctype: str, name: str) -> None:
 		frappe.throw(_("You need the Raven User role to discuss this document", context=TRANSLATION_CONTEXT))
 	if not frappe.has_permission(doctype, "read", doc=name):
 		frappe.throw(_("Not permitted", context=TRANSLATION_CONTEXT))
+
+
+@frappe.whitelist()
+def get_accessible_project_channel(project: str) -> dict | None:
+	"""Return the synced Project channel when the caller can read it."""
+	if not project or not frappe.db.exists("DocType", "Project"):
+		return None
+	if not frappe.db.exists("Project", project):
+		return None
+	if "Raven User" not in frappe.get_roles() and frappe.session.user != "Administrator":
+		return None
+	if not frappe.has_permission("Project", "read", doc=project):
+		return None
+	channel_name = get_synced_channel("Project", project)
+	if not channel_name:
+		return None
+	values = frappe.db.get_value(
+		"Raven Channel",
+		channel_name,
+		["name", "channel_name", "workspace", "is_archived"],
+		as_dict=True,
+	)
+	if not values or values.is_archived:
+		return None
+	if not frappe.has_permission("Raven Channel", "read", doc=channel_name):
+		return None
+	if not frappe.db.exists(
+		"Raven Channel Member",
+		{"channel_id": values.name, "user_id": frappe.session.user},
+	):
+		return None
+	return {
+		"name": values.name,
+		"channel_name": values.channel_name,
+		"workspace": values.workspace,
+	}
 
 
 @frappe.whitelist()

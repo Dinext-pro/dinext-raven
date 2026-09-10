@@ -25,8 +25,11 @@ required_apps = ["dinext_common", "raven"]
 # ------------------
 
 # include js, css files in header of desk.html
-# app_include_css = "/assets/dinext_raven/css/dinext_raven.css"
-# app_include_js = "/assets/dinext_raven/js/dinext_raven.js"
+app_include_css = "/assets/dinext_raven/css/dinext_raven.css?v=collapsed-overflow-1"
+app_include_js = [
+	"/assets/dinext_raven/js/dinext_raven_widget.js?v=collapsed-overflow-1",
+	"/assets/dinext_raven/js/dinext_raven_discuss.js?v=collapsed-overflow-1",
+]
 
 # include js, css files in header of web template
 # web_include_css = "/assets/dinext_raven/css/dinext_raven.css"
@@ -83,7 +86,8 @@ required_apps = ["dinext_common", "raven"]
 # ------------
 
 # before_install = "dinext_raven.install.before_install"
-# after_install = "dinext_raven.install.after_install"
+after_install = "dinext_raven.install.after_install"
+after_migrate = "dinext_raven.install.after_migrate"
 
 # Uninstallation
 # ------------
@@ -137,13 +141,15 @@ required_apps = ["dinext_common", "raven"]
 # ---------------
 # Hook on document methods and events
 
-# doc_events = {
-# 	"*": {
-# 		"on_update": "method",
-# 		"on_cancel": "method",
-# 		"on_trash": "method"
-# 	}
-# }
+doc_events = {
+	"Project": {
+		"after_insert": "dinext_raven.document_channels.project.ensure_project_channel",
+		"on_update": "dinext_raven.document_channels.project.ensure_project_channel",
+		"on_trash": "dinext_raven.document_channels.project.on_project_trash",
+	}
+}
+
+dinext_settings_workspace_children = ["Raven"]
 
 # Scheduled Tasks
 # ---------------

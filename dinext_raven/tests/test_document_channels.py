@@ -6,7 +6,7 @@ from frappe.tests.utils import FrappeTestCase
 from frappe.utils import random_string
 
 from dinext_common.setup.hub_catalog import SETTINGS_HUB_SETTINGS
-from dinext_raven.document_channels.api import get_document_channels
+from dinext_raven.document_channels.api import get_accessible_project_channel, get_document_channels
 from dinext_raven.document_channels.project import (
 	backfill_project_channels,
 	ensure_project_channel,
@@ -212,16 +212,123 @@ class TestDinextRavenDocumentChannels(FrappeTestCase):
 			)
 		)
 
-	def _make_user(self, prefix: str) -> str:
+	def test_accessible_project_channel_filters_by_membership_and_role(self):
+		if not frappe.db.exists("DocType", "Project"):
+			self.skipTest("Project is not available")
+		if not frappe.db.exists("DocType", "Raven Channel"):
+			self.skipTest("Raven is not installed")
+		ensure_chat_workspace()
+		project = self._make_project()
+		member = self._make_isolated_user("chan-member", raven_user=True)
+		outsider = self._make_isolated_user("chan-out", raven_user=True)
+		no_role = self._make_isolated_user("chan-norole", raven_user=False)
+		self._share_project(project, member)
+		self._share_project(project, outsider)
+		self._share_project(project, no_role)
+
+		self.assertIsNone(get_accessible_project_channel(project))
+
+		channel = create_linked_channel(
+			"Project",
+			project,
+			channel_name=f"proj-{random_string(4)}",
+			channel_type="Private",
+			is_synced=1,
+			members=[member],
+		)
+		channel_name = frappe.db.get_value("Raven Channel", channel, "channel_name")
+
+		try:
+			frappe.set_user(member)
+			payload = get_accessible_project_channel(project)
+			self.assertTrue(payload)
+			self.assertEqual(payload["name"], channel)
+			self.assertEqual(payload["channel_name"], channel_name)
+
+			frappe.set_user(outsider)
+			self.assertIsNone(get_accessible_project_channel(project))
+
+			frappe.set_user(no_role)
+			self.assertIsNone(get_accessible_project_channel(project))
+		finally:
+			frappe.set_user("Administrator")
+
+		frappe.db.set_value("Raven Channel", channel, "is_archived", 1)
+		frappe.set_user(member)
+		try:
+			self.assertIsNone(get_accessible_project_channel(project))
+		finally:
+			frappe.set_user("Administrator")
+
+	def _make_project(self) -> str:
+		name = f"RAVEN-ICON-{random_string(6)}"
+		project = frappe.get_doc(
+			{
+				"doctype": "Project",
+				"project_name": name,
+				"status": "Open",
+			}
+		)
+		project.insert(ignore_permissions=True, ignore_mandatory=True, set_name=name)
+		existing = get_synced_channel("Project", project.name)
+		if existing:
+			frappe.db.set_value("Raven Channel", existing, "is_synced", 0)
+		return project.name
+
+	def _share_project(self, project: str, user: str) -> None:
+		frappe.get_doc(
+			{
+				"doctype": "DocShare",
+				"name": random_string(10),
+				"share_doctype": "Project",
+				"share_name": project,
+				"user": user,
+				"read": 1,
+			}
+		).db_insert()
+		frappe.clear_cache(user=user)
+
+	def _make_isolated_user(self, prefix: str, raven_user: bool = False) -> str:
 		email = f"{prefix}-{random_string(6).lower()}@example.com"
 		user = frappe.get_doc(
 			{
 				"doctype": "User",
+				"name": email,
 				"email": email,
 				"first_name": prefix.title(),
 				"send_welcome_email": 0,
 				"user_type": "System User",
+				"enabled": 1,
 			}
 		)
-		user.insert(ignore_permissions=True)
-		return user.name
+		user.db_insert()
+		if raven_user:
+			frappe.get_doc(
+				{
+					"doctype": "Has Role",
+					"name": random_string(10),
+					"parent": email,
+					"parenttype": "User",
+					"parentfield": "roles",
+					"role": "Raven User",
+				}
+			).db_insert()
+			if frappe.db.exists("DocType", "Raven User") and not frappe.db.exists(
+				"Raven User", {"user": email}
+			):
+				frappe.get_doc(
+					{
+						"doctype": "Raven User",
+						"name": email,
+						"type": "User",
+						"user": email,
+						"full_name": prefix.title(),
+						"first_name": prefix.title(),
+						"enabled": 1,
+					}
+				).db_insert()
+		frappe.clear_cache(user=email)
+		return email
+
+	def _make_user(self, prefix: str) -> str:
+		return self._make_isolated_user(prefix, raven_user=True)

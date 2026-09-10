@@ -28,7 +28,7 @@ required_apps = ["dinext_common", "raven"]
 app_include_css = "/assets/dinext_raven/css/dinext_raven.css?v=collapsed-overflow-1"
 app_include_js = [
 	"/assets/dinext_raven/js/dinext_raven_widget.js?v=collapsed-overflow-1",
-	"/assets/dinext_raven/js/dinext_raven_discuss.js?v=collapsed-overflow-1",
+	"/assets/dinext_raven/js/dinext_raven_discuss.js?v=project-channel-icon-1",
 ]
 
 # include js, css files in header of web template
@@ -46,7 +46,7 @@ app_include_js = [
 # page_js = {"page" : "public/js/file.js"}
 
 # include js in doctype views
-# doctype_js = {"doctype" : "public/js/doctype.js"}
+doctype_js = {"Project": "public/js/dinext_raven_project_form.js"}
 # doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
 # doctype_calendar_js = {"doctype" : "public/js/doctype_calendar.js"}

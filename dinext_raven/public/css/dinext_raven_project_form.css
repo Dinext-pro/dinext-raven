@@ -1,0 +1,13 @@
+/* Frappe hides .page-icon-group on xs/sm. Keep only the Project channel icon. */
+
+@media (max-width: 767.98px) {
+	.page-icon-group.hidden-xs:has(> .dinext-raven-project-channel),
+	.page-icon-group.hidden-sm:has(> .dinext-raven-project-channel) {
+		display: flex !important;
+	}
+
+	.page-icon-group:has(> .dinext-raven-project-channel)
+		> .icon-btn:not(.dinext-raven-project-channel) {
+		display: none !important;
+	}
+}

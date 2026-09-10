@@ -28,12 +28,89 @@ dinext_raven.can_discuss = function (frm) {
 	return true;
 };
 
-dinext_raven.channel_url = function (channel) {
-	return channel.route || `/raven/${channel.workspace || "Dinext"}/${channel.name}`;
+dinext_raven.WIDGET_OPEN_TIMEOUT_MS = 8000;
+
+dinext_raven.widget_container = function () {
+	return document.querySelector(".raven-container");
+};
+
+dinext_raven.widget_content = function () {
+	const root = dinext_raven.widget_container();
+	return root ? root.querySelector(".raven-content-container") : null;
 };
 
 dinext_raven.open_channel = function (channel) {
-	window.open(dinext_raven.channel_url(channel), "_blank");
+	if (!channel || !channel.name) {
+		return;
+	}
+	if (!dinext_raven.widget_container()) {
+		frappe.show_alert({
+			message: __("Raven widget is not available", null, DINEXT_RAVEN_CTX),
+			indicator: "orange",
+		});
+		return;
+	}
+	dinext_raven.open_channel_in_widget(channel).catch(function () {
+		frappe.show_alert({
+			message: __("Could not open the channel in the Raven widget", null, DINEXT_RAVEN_CTX),
+			indicator: "orange",
+		});
+	});
+};
+
+dinext_raven.open_channel_in_widget = function (channel) {
+	return new Promise(function (resolve, reject) {
+		const deadline = Date.now() + dinext_raven.WIDGET_OPEN_TIMEOUT_MS;
+		const step = function () {
+			const root = dinext_raven.widget_container();
+			if (!root) {
+				reject(new Error("missing widget"));
+				return;
+			}
+			if (Date.now() > deadline) {
+				reject(new Error("timeout"));
+				return;
+			}
+			if (root.getAttribute("data-open-state") !== "true") {
+				const toggle = root.querySelector(".raven-header .back-button");
+				if (toggle) {
+					toggle.click();
+				}
+				setTimeout(step, 100);
+				return;
+			}
+			const content = dinext_raven.widget_content();
+			const current = content && content.getAttribute("data-channel");
+			if (current === channel.name) {
+				resolve();
+				return;
+			}
+			if (current) {
+				const back = root.querySelector(".raven-channel-header .back-button");
+				if (back) {
+					back.click();
+				}
+				setTimeout(step, 100);
+				return;
+			}
+			const items = root.querySelectorAll(".raven-channel-list-item");
+			let match = null;
+			items.forEach(function (item) {
+				const label = item.querySelector(".raven-channel-list-item__name");
+				const text = label ? label.textContent.trim() : "";
+				if (text && (text === channel.channel_name || text === channel.name)) {
+					match = item;
+				}
+			});
+			if (match) {
+				match.click();
+				setTimeout(step, 100);
+				return;
+			}
+			setTimeout(step, 150);
+		};
+		step();
+	});
 };
 
 dinext_raven.trigger_send_raven = function (frm) {

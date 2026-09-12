@@ -159,8 +159,10 @@ Discuss:
 - **Создать канал** — имя, тип, MultiSelect приглашённых из
   `get_invite_candidates`. После создания overlay сбрасывает кэш списка
   виджета (`frappe.raven_chat` remount) и сразу вызывает
-  `dinext_raven.open_channel` для нового канала. Timeline Discuss/Channels
-  перерисовывается в том же callback.
+  `dinext_raven.open_channel` для нового канала. Если в виджете уже открыт
+  другой канал, overlay сначала выходит из него штатной кнопкой back, затем
+  remount и открывает новый. Timeline Discuss/Channels перерисовывается в том
+  же callback.
 
 Клик по каналу вызывает `dinext_raven.open_channel`: раскрыть виджет, при
 необходимости выйти из другого канала, выбрать строку списка по
@@ -401,7 +403,8 @@ flowchart LR
   createUi --> candidates["get_invite_candidates"]
   createUi --> createApi["create_document_channel"]
   createApi --> linked["Linked non-synced channel"]
-  createApi --> refresh["refresh_widget_channel_list"]
+  createApi --> leave["leave_open_widget_channel"]
+  leave --> refresh["refresh_widget_channel_list"]
   refresh --> openCreated["open_channel in Desk widget"]
   listApi --> openBtn["Icon or Channels menu"]
   openBtn --> widget["open_channel in Desk widget"]

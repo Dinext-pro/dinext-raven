@@ -29,6 +29,8 @@ dinext_raven.can_discuss = function (frm) {
 };
 
 dinext_raven.WIDGET_OPEN_TIMEOUT_MS = 8000;
+dinext_raven.WIDGET_CHAT_VIEW_WAIT_MS = 1000;
+dinext_raven.WIDGET_CHAT_VIEW_SETTLE_MS = 400;
 dinext_raven._open_channel_generation = 0;
 
 dinext_raven.widget_container = function () {
@@ -48,6 +50,15 @@ dinext_raven.widget_toggle_button = function (root) {
 
 dinext_raven.widget_channel_back_button = function (root) {
 	return root ? root.querySelector(".raven-channel-header > .back-button") : null;
+};
+
+dinext_raven.widget_has_chat_view = function (root) {
+	return !!(root && root.querySelector(".raven-chat-view-container"));
+};
+
+dinext_raven.current_widget_channel = function () {
+	const content = dinext_raven.widget_content();
+	return (content && content.getAttribute("data-channel")) || "";
 };
 
 dinext_raven.find_channel_list_item = function (root, channel) {
@@ -73,7 +84,13 @@ dinext_raven.next_widget_open_action = function (state) {
 		return "expand";
 	}
 	if (targetName && current === targetName) {
-		return "done";
+		if (state.hasChatView) {
+			return "done";
+		}
+		if (state.canRetry) {
+			return "back";
+		}
+		return "wait";
 	}
 	if (state && state.hasMatch) {
 		return "select";
@@ -96,6 +113,54 @@ dinext_raven.refresh_widget_channel_list = function () {
 	}
 	chat.setup_app();
 	return true;
+};
+
+dinext_raven.wait_ms = function (ms) {
+	return new Promise(function (resolve) {
+		setTimeout(resolve, ms);
+	});
+};
+
+dinext_raven.wait_for_modals_to_close = function () {
+	return new Promise(function (resolve) {
+		const deadline = Date.now() + dinext_raven.WIDGET_OPEN_TIMEOUT_MS;
+		const step = function () {
+			if (!document.querySelector(".modal.show") || Date.now() > deadline) {
+				resolve();
+				return;
+			}
+			setTimeout(step, 100);
+		};
+		step();
+	});
+};
+
+dinext_raven.leave_open_widget_channel = function () {
+	return new Promise(function (resolve) {
+		const deadline = Date.now() + dinext_raven.WIDGET_OPEN_TIMEOUT_MS;
+		let cleared_at = null;
+		const step = function () {
+			if (!dinext_raven.current_widget_channel()) {
+				if (cleared_at == null) {
+					cleared_at = Date.now();
+				}
+				if (Date.now() - cleared_at >= dinext_raven.WIDGET_CHAT_VIEW_SETTLE_MS) {
+					resolve();
+					return;
+				}
+			} else if (Date.now() > deadline) {
+				resolve();
+				return;
+			} else {
+				const back = dinext_raven.widget_channel_back_button(dinext_raven.widget_container());
+				if (back) {
+					back.click();
+				}
+			}
+			setTimeout(step, 100);
+		};
+		step();
+	});
 };
 
 dinext_raven.open_channel = function (channel) {
@@ -125,6 +190,9 @@ dinext_raven.open_channel_in_widget = function (channel) {
 	return new Promise(function (resolve, reject) {
 		const deadline = Date.now() + dinext_raven.WIDGET_OPEN_TIMEOUT_MS;
 		let last_select_current = null;
+		let retried_select = false;
+		let matched_without_view_since = null;
+		let last_back_at = 0;
 		const step = function () {
 			if (generation !== dinext_raven._open_channel_generation) {
 				reject(new Error("cancelled"));
@@ -143,14 +211,26 @@ dinext_raven.open_channel_in_widget = function (channel) {
 				reject(new Error("timeout"));
 				return;
 			}
-			const content = dinext_raven.widget_content();
-			const current = (content && content.getAttribute("data-channel")) || "";
+			const current = dinext_raven.current_widget_channel();
+			const hasChatView = dinext_raven.widget_has_chat_view(root);
+			if (current === channel.name && !hasChatView) {
+				if (matched_without_view_since == null) {
+					matched_without_view_since = Date.now();
+				}
+			} else {
+				matched_without_view_since = null;
+			}
+			const waited_for_view =
+				matched_without_view_since != null &&
+				Date.now() - matched_without_view_since >= dinext_raven.WIDGET_CHAT_VIEW_WAIT_MS;
 			const match = dinext_raven.find_channel_list_item(root, channel);
 			const action = dinext_raven.next_widget_open_action({
 				open: root.getAttribute("data-open-state") === "true",
 				current: current,
 				targetName: channel.name,
 				hasMatch: !!match,
+				hasChatView: hasChatView,
+				canRetry: !retried_select && waited_for_view,
 			});
 			if (action === "done") {
 				resolve();
@@ -162,12 +242,21 @@ dinext_raven.open_channel_in_widget = function (channel) {
 					toggle.click();
 				}
 			} else if (action === "select" && match && last_select_current !== current) {
+				if (Date.now() - last_back_at < dinext_raven.WIDGET_CHAT_VIEW_SETTLE_MS) {
+					setTimeout(step, 100);
+					return;
+				}
 				match.click();
 				last_select_current = current;
 			} else if (action === "back") {
 				const back = dinext_raven.widget_channel_back_button(root);
 				if (back) {
 					back.click();
+				}
+				last_back_at = Date.now();
+				if (current === channel.name) {
+					retried_select = true;
+					last_select_current = null;
 				}
 			}
 			setTimeout(step, 100);
@@ -341,8 +430,18 @@ dinext_raven.render_discuss = function (frm) {
 				function () {
 					dinext_raven.show_create_channel_dialog(frm, function (channel) {
 						dinext_raven.render_discuss(frm);
-						dinext_raven.refresh_widget_channel_list();
-						dinext_raven.open_channel(channel);
+						dinext_raven
+							.wait_for_modals_to_close()
+							.then(function () {
+								return dinext_raven.leave_open_widget_channel();
+							})
+							.then(function () {
+								dinext_raven.refresh_widget_channel_list();
+								return dinext_raven.wait_ms(dinext_raven.WIDGET_CHAT_VIEW_SETTLE_MS);
+							})
+							.then(function () {
+								dinext_raven.open_channel(channel);
+							});
 					});
 				}
 			);

@@ -84,11 +84,25 @@ dinext_raven.next_widget_open_action = function (state) {
 	return "wait";
 };
 
+dinext_raven.refresh_widget_channel_list = function () {
+	const chat = window.frappe && frappe.raven_chat;
+	if (!chat || !chat.$raven_chat || !chat.setup_app) {
+		return false;
+	}
+	try {
+		chat.$raven_chat.unmount();
+	} catch (err) {
+		return false;
+	}
+	chat.setup_app();
+	return true;
+};
+
 dinext_raven.open_channel = function (channel) {
 	if (!channel || !channel.name) {
 		return;
 	}
-	if (!dinext_raven.widget_container()) {
+	if (!dinext_raven.widget_container() && !(window.frappe && frappe.raven_chat)) {
 		frappe.show_alert({
 			message: __("Raven widget is not available", null, DINEXT_RAVEN_CTX),
 			indicator: "orange",
@@ -118,7 +132,11 @@ dinext_raven.open_channel_in_widget = function (channel) {
 			}
 			const root = dinext_raven.widget_container();
 			if (!root) {
-				reject(new Error("missing widget"));
+				if (Date.now() > deadline) {
+					reject(new Error("missing widget"));
+					return;
+				}
+				setTimeout(step, 100);
 				return;
 			}
 			if (Date.now() > deadline) {
@@ -219,14 +237,14 @@ dinext_raven.show_create_channel_dialog = function (frm, on_created) {
 							invitees: values.invitees || [],
 						},
 						freeze: true,
-						callback: function () {
+						callback: function (r) {
 							dialog.hide();
 							frappe.show_alert({
 								message: __("Channel created", null, DINEXT_RAVEN_CTX),
 								indicator: "green",
 							});
 							if (on_created) {
-								on_created();
+								on_created(r.message);
 							}
 						},
 					});
@@ -321,8 +339,10 @@ dinext_raven.render_discuss = function (frm) {
 				discuss,
 				__("Create channel", null, DINEXT_RAVEN_CTX),
 				function () {
-					dinext_raven.show_create_channel_dialog(frm, function () {
+					dinext_raven.show_create_channel_dialog(frm, function (channel) {
 						dinext_raven.render_discuss(frm);
+						dinext_raven.refresh_widget_channel_list();
+						dinext_raven.open_channel(channel);
 					});
 				}
 			);

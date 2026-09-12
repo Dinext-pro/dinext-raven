@@ -157,13 +157,17 @@ Discuss:
 - **Отправить в чат/канал** — клик по скрытой `.send-raven-button` (диалог
   upstream Raven);
 - **Создать канал** — имя, тип, MultiSelect приглашённых из
-  `get_invite_candidates`.
+  `get_invite_candidates`. После создания overlay сбрасывает кэш списка
+  виджета (`frappe.raven_chat` remount) и сразу вызывает
+  `dinext_raven.open_channel` для нового канала. Timeline Discuss/Channels
+  перерисовывается в том же callback.
 
 Клик по каналу вызывает `dinext_raven.open_channel`: раскрыть виджет, при
 необходимости выйти из другого канала, выбрать строку списка по
 `channel_name` / `name`. Таймаут 8 с. Фоллбека на `/raven/...` в новой вкладке
-нет. `get_document_channels` по-прежнему отдаёт `route` вида
-`/raven/Dinext/<channel>` для справки.
+нет. `get_document_channels` и `create_document_channel` отдают `route` вида
+`/raven/Dinext/<channel>`; create дополнительно возвращает `channel_name` и
+`workspace`.
 
 Клиентский denylist Discuss: `DocShare`, `Version`, `Activity Log`,
 `Error Log`, `Route History`, `Communication`, `Email Queue`, `Comment`,
@@ -194,7 +198,7 @@ Hooks `Project.after_insert` / `on_update` → `ensure_project_channel`.
 | --- | --- |
 | `dinext_raven.document_channels.api.get_document_channels` | Связанные не-DM каналы документа и `route` |
 | `dinext_raven.document_channels.api.get_invite_candidates` | Кандидаты invite: assignees, DocShare, пользователи с отношением к документу |
-| `dinext_raven.document_channels.api.create_document_channel` | POST: связанный не-synced канал; члены = assignees + shares + session user + допустимые invitees |
+| `dinext_raven.document_channels.api.create_document_channel` | POST: связанный не-synced канал; члены = assignees + shares + session user + допустимые invitees; ответ `name`, `channel_name`, `workspace`, `route` |
 | `dinext_raven.document_channels.api.get_accessible_project_channel` | Synced канал Project или `null`, если нет доступа |
 
 Первые три метода требуют роль `Raven User` (или Administrator) и `read` на
@@ -397,6 +401,8 @@ flowchart LR
   createUi --> candidates["get_invite_candidates"]
   createUi --> createApi["create_document_channel"]
   createApi --> linked["Linked non-synced channel"]
+  createApi --> refresh["refresh_widget_channel_list"]
+  refresh --> openCreated["open_channel in Desk widget"]
   listApi --> openBtn["Icon or Channels menu"]
   openBtn --> widget["open_channel in Desk widget"]
 ```

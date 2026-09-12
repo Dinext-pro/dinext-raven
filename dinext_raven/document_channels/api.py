@@ -143,4 +143,16 @@ def create_document_channel(
 		members=members,
 		invitees=invite_list,
 	)
-	return {"name": channel, "route": f"/raven/{CHAT_WORKSPACE}/{channel}"}
+	values = frappe.db.get_value(
+		"Raven Channel",
+		channel,
+		["name", "channel_name", "workspace"],
+		as_dict=True,
+	)
+	workspace = (values and values.workspace) or CHAT_WORKSPACE
+	return {
+		"name": values.name if values else channel,
+		"channel_name": values.channel_name if values else channel,
+		"workspace": workspace,
+		"route": f"/raven/{workspace}/{values.name if values else channel}",
+	}

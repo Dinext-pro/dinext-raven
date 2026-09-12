@@ -6,7 +6,11 @@ from frappe.tests.utils import FrappeTestCase
 from frappe.utils import random_string
 
 from dinext_common.setup.hub_catalog import SETTINGS_HUB_SETTINGS
-from dinext_raven.document_channels.api import get_accessible_project_channel, get_document_channels
+from dinext_raven.document_channels.api import (
+	create_document_channel,
+	get_accessible_project_channel,
+	get_document_channels,
+)
 from dinext_raven.document_channels.project import (
 	backfill_project_channels,
 	ensure_project_channel,
@@ -130,6 +134,52 @@ class TestDinextRavenDocumentChannels(FrappeTestCase):
 		if frappe.db.exists("Version"):
 			with self.assertRaises(frappe.ValidationError):
 				get_document_channels("Version", "does-not-matter")
+
+	def test_create_document_channel_returns_open_payload(self):
+		if not frappe.db.exists("DocType", "Raven Channel"):
+			self.skipTest("Raven is not installed")
+		ensure_chat_workspace()
+		doc = frappe.get_doc(
+			{
+				"doctype": "File",
+				"file_name": f"create-{random_string(6)}.txt",
+				"content": "create-channel-payload",
+				"is_private": 1,
+			}
+		).insert(ignore_permissions=True)
+		title = f"Open {random_string(6)}"
+		payload = create_document_channel("File", doc.name, channel_name=title)
+		stored = frappe.db.get_value(
+			"Raven Channel",
+			payload["name"],
+			["name", "channel_name", "workspace"],
+			as_dict=True,
+		)
+		self.assertTrue(stored)
+		self.assertEqual(payload["name"], stored.name)
+		self.assertEqual(payload["channel_name"], stored.channel_name)
+		self.assertEqual(payload["workspace"], stored.workspace or CHAT_WORKSPACE)
+		self.assertEqual(payload["route"], f"/raven/{payload['workspace']}/{stored.name}")
+		self.assertNotEqual(payload["channel_name"], title)
+
+	def test_create_document_channel_returns_suffixed_channel_name(self):
+		if not frappe.db.exists("DocType", "Raven Channel"):
+			self.skipTest("Raven is not installed")
+		ensure_chat_workspace()
+		doc = frappe.get_doc(
+			{
+				"doctype": "File",
+				"file_name": f"suffix-{random_string(6)}.txt",
+				"content": "create-channel-suffix",
+				"is_private": 1,
+			}
+		).insert(ignore_permissions=True)
+		title = f"Dup {random_string(6)}"
+		first = create_document_channel("File", doc.name, channel_name=title)
+		second = create_document_channel("File", doc.name, channel_name=title)
+		self.assertEqual(second["channel_name"], f"{first['channel_name']}-2")
+		self.assertNotEqual(second["channel_name"], title)
+		self.assertNotEqual(second["name"], first["name"])
 
 	def test_project_backfill_is_idempotent_and_cancel_does_not_archive(self):
 		if not project_available():

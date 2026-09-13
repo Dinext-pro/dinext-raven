@@ -15,26 +15,61 @@ dinext_raven.DISCUSS_DENYLIST = {
 	"Access Log": true,
 };
 
-dinext_raven.can_discuss = function (frm) {
-	if (!frm || frm.is_new() || !frm.doc || !frm.doc.name) {
+dinext_raven.has_raven_role = function () {
+	const roles = (frappe.boot && frappe.boot.user && frappe.boot.user.roles) || [];
+	return roles.includes("Raven User") || frappe.session.user === "Administrator";
+};
+
+dinext_raven.is_denied_doctype = function (doctype) {
+	return !!(dinext_raven.DISCUSS_DENYLIST[doctype] || String(doctype || "").startsWith("Raven "));
+};
+
+dinext_raven.can_discuss_document = function (doctype, name) {
+	if (!doctype || !name) {
 		return false;
 	}
-	if (!frappe.boot.user.roles.includes("Raven User") && frappe.session.user !== "Administrator") {
+	if (!dinext_raven.has_raven_role()) {
 		return false;
 	}
-	if (dinext_raven.DISCUSS_DENYLIST[frm.doctype] || String(frm.doctype).startsWith("Raven ")) {
+	if (dinext_raven.is_denied_doctype(doctype)) {
 		return false;
 	}
 	return true;
 };
 
+dinext_raven.can_discuss = function (frm) {
+	if (!frm || frm.is_new() || !frm.doc || !frm.doc.name) {
+		return false;
+	}
+	return dinext_raven.can_discuss_document(frm.doctype, frm.doc.name);
+};
+
+dinext_raven.document_context = function (source) {
+	if (!source) {
+		return null;
+	}
+	const doctype = source.doctype;
+	const docname = source.docname || (source.doc && source.doc.name) || source.name;
+	if (!doctype || !docname) {
+		return null;
+	}
+	const doc = source.doc || { name: docname };
+	const meta = source.meta || (frappe.get_meta && frappe.get_meta(doctype)) || {};
+	return { doctype: doctype, docname: docname, doc: doc, meta: meta };
+};
+
 dinext_raven.WIDGET_OPEN_TIMEOUT_MS = 8000;
 dinext_raven.WIDGET_CHAT_VIEW_WAIT_MS = 1000;
 dinext_raven.WIDGET_CHAT_VIEW_SETTLE_MS = 400;
+dinext_raven.DEFAULT_CHAT_WORKSPACE = "Dinext";
 dinext_raven._open_channel_generation = 0;
 
 dinext_raven.widget_container = function () {
 	return document.querySelector(".raven-container");
+};
+
+dinext_raven.widget_is_available = function () {
+	return !!(dinext_raven.widget_container() || (window.frappe && frappe.raven_chat));
 };
 
 dinext_raven.widget_content = function () {
@@ -163,15 +198,44 @@ dinext_raven.leave_open_widget_channel = function () {
 	});
 };
 
+dinext_raven.channel_route = function (channel) {
+	if (channel && channel.route) {
+		return channel.route;
+	}
+	const name = channel && channel.name;
+	if (!name) {
+		return "";
+	}
+	const workspace = (channel && channel.workspace) || dinext_raven.DEFAULT_CHAT_WORKSPACE;
+	return "/raven/" + workspace + "/" + name;
+};
+
+dinext_raven.open_channel_in_new_window = function (channel) {
+	const route = dinext_raven.channel_route(channel);
+	if (!route || typeof window.open !== "function") {
+		frappe.show_alert({
+			message: __("Could not open the channel in the Raven widget", null, DINEXT_RAVEN_CTX),
+			indicator: "orange",
+		});
+		return false;
+	}
+	const opened = window.open(route, "_blank", "noopener,noreferrer");
+	if (!opened) {
+		frappe.show_alert({
+			message: __("Could not open the channel", null, DINEXT_RAVEN_CTX),
+			indicator: "orange",
+		});
+		return false;
+	}
+	return true;
+};
+
 dinext_raven.open_channel = function (channel) {
 	if (!channel || !channel.name) {
 		return;
 	}
-	if (!dinext_raven.widget_container() && !(window.frappe && frappe.raven_chat)) {
-		frappe.show_alert({
-			message: __("Raven widget is not available", null, DINEXT_RAVEN_CTX),
-			indicator: "orange",
-		});
+	if (!dinext_raven.widget_is_available()) {
+		dinext_raven.open_channel_in_new_window(channel);
 		return;
 	}
 	dinext_raven.open_channel_in_widget(channel).catch(function (err) {
@@ -183,6 +247,21 @@ dinext_raven.open_channel = function (channel) {
 			indicator: "orange",
 		});
 	});
+};
+
+dinext_raven.open_created_channel = function (channel) {
+	return dinext_raven
+		.wait_for_modals_to_close()
+		.then(function () {
+			return dinext_raven.leave_open_widget_channel();
+		})
+		.then(function () {
+			dinext_raven.refresh_widget_channel_list();
+			return dinext_raven.wait_ms(dinext_raven.WIDGET_CHAT_VIEW_SETTLE_MS);
+		})
+		.then(function () {
+			dinext_raven.open_channel(channel);
+		});
 };
 
 dinext_raven.open_channel_in_widget = function (channel) {
@@ -266,9 +345,17 @@ dinext_raven.open_channel_in_widget = function (channel) {
 };
 
 dinext_raven.trigger_send_raven = function (frm) {
-	const hidden = frm.footer && frm.footer.frm && $(frm.wrapper).find(".send-raven-button").get(0);
+	const hidden =
+		frm && frm.footer && frm.footer.frm && frm.wrapper
+			? $(frm.wrapper).find(".send-raven-button").get(0)
+			: null;
 	if (hidden) {
 		hidden.click();
+		return;
+	}
+	const ctx = dinext_raven.document_context(frm);
+	if (ctx) {
+		dinext_raven.show_send_raven_dialog(ctx);
 		return;
 	}
 	frappe.msgprint({
@@ -278,12 +365,17 @@ dinext_raven.trigger_send_raven = function (frm) {
 	});
 };
 
-dinext_raven.show_create_channel_dialog = function (frm, on_created) {
+dinext_raven.show_create_channel_dialog = function (source, on_created) {
+	const ctx = dinext_raven.document_context(source);
+	if (!ctx) {
+		return;
+	}
 	frappe.call({
 		method: "dinext_raven.document_channels.api.get_invite_candidates",
-		args: { doctype: frm.doctype, name: frm.docname },
+		args: { doctype: ctx.doctype, name: ctx.docname },
 		callback: function (r) {
 			const candidates = (r.message || []).map((row) => row.name);
+			const title_field = ctx.meta && ctx.meta.title_field;
 			const dialog = new frappe.ui.Dialog({
 				title: __("Create channel", null, DINEXT_RAVEN_CTX),
 				fields: [
@@ -291,7 +383,7 @@ dinext_raven.show_create_channel_dialog = function (frm, on_created) {
 						fieldname: "channel_name",
 						label: __("Channel Name", null, DINEXT_RAVEN_CTX),
 						fieldtype: "Data",
-						default: frm.doc[frm.meta.title_field] || frm.docname,
+						default: (title_field && ctx.doc[title_field]) || ctx.docname,
 						reqd: 1,
 					},
 					{
@@ -319,24 +411,222 @@ dinext_raven.show_create_channel_dialog = function (frm, on_created) {
 					frappe.call({
 						method: "dinext_raven.document_channels.api.create_document_channel",
 						args: {
-							doctype: frm.doctype,
-							name: frm.docname,
+							doctype: ctx.doctype,
+							name: ctx.docname,
 							channel_name: values.channel_name,
 							channel_type: values.channel_type || "Private",
 							invitees: values.invitees || [],
 						},
 						freeze: true,
-						callback: function (r) {
+						callback: function (created) {
 							dialog.hide();
 							frappe.show_alert({
 								message: __("Channel created", null, DINEXT_RAVEN_CTX),
 								indicator: "green",
 							});
 							if (on_created) {
-								on_created(r.message);
+								on_created(created.message);
 							}
 						},
 					});
+				},
+			});
+			dialog.show();
+		},
+	});
+};
+
+dinext_raven.send_document_raven = function (opts) {
+	const message = (opts && opts.message) || "";
+	const insert_message = function (file_url) {
+		const ext = file_url ? String(file_url).split(".").pop() : "";
+		const is_image = /jpe?g|png|gif/i.test(ext);
+		return frappe.db.insert({
+			doctype: "Raven Message",
+			channel_id: opts.channel,
+			text: message,
+			json: {
+				content: [
+					{
+						content: [{ text: message, type: "text" }],
+						type: "paragraph",
+					},
+				],
+				type: "doc",
+			},
+			message_type: file_url ? (is_image ? "Image" : "File") : "Text",
+			file: file_url || "",
+			link_doctype: opts.doctype,
+			link_document: opts.docname,
+		});
+	};
+	const done = function () {
+		frappe.show_alert({
+			message: __("Message sent", null, DINEXT_RAVEN_CTX),
+			indicator: "green",
+		});
+		if (frappe.utils && frappe.utils.play_sound) {
+			frappe.utils.play_sound("email");
+		}
+	};
+	const fail = function () {
+		frappe.throw(__("Error sending message", null, DINEXT_RAVEN_CTX));
+	};
+	if (opts.file_name) {
+		frappe.db
+			.get_value("File", { name: opts.file_name }, "file_url")
+			.then(function (res) {
+				return insert_message(res && res.message && res.message.file_url);
+			})
+			.then(done)
+			.catch(fail);
+		return;
+	}
+	insert_message("").then(done).catch(fail);
+};
+
+dinext_raven.show_send_raven_dialog = function (source) {
+	const ctx = dinext_raven.document_context(source);
+	if (!ctx) {
+		frappe.msgprint({
+			title: __("Send to chat or channel", null, DINEXT_RAVEN_CTX),
+			message: __("The Raven send dialog is not available on this form.", null, DINEXT_RAVEN_CTX),
+			indicator: "orange",
+		});
+		return;
+	}
+	frappe.call({
+		method: "raven.api.raven_channel.get_channels",
+		args: { hide_archived: true },
+		callback: function (r) {
+			const channels = (r && r.message) || [];
+			if (!channels.length) {
+				frappe.msgprint({
+					title: __("Send a Raven", null, DINEXT_RAVEN_CTX),
+					indicator: "blue",
+					message: __("No channels found", null, DINEXT_RAVEN_CTX),
+				});
+				return;
+			}
+			const dm_list = [];
+			const channel_list = [];
+			const channel_id = [];
+			channels.forEach(function (channel) {
+				if (channel.is_direct_message) {
+					dm_list.push(channel.full_name);
+					channel_id.push({ value: channel.name, name: channel.full_name });
+				} else {
+					channel_list.push(channel.channel_name);
+					channel_id.push({ value: channel.name, name: channel.channel_name });
+				}
+			});
+			let attachments = [];
+			const dialog = new frappe.ui.Dialog({
+				title: __("Send a Raven", null, DINEXT_RAVEN_CTX),
+				fields: [
+					{
+						fieldname: "type",
+						label: __("Type", null, DINEXT_RAVEN_CTX),
+						fieldtype: "Select",
+						options: ["DM", "Channel"],
+						default: "Channel",
+						onchange: function () {
+							const field = dialog.get_field("channel");
+							field.df.options = this.value === "DM" ? dm_list : channel_list;
+							field.refresh();
+						},
+					},
+					{
+						fieldname: "channel",
+						label: __("Channel/DM", null, DINEXT_RAVEN_CTX),
+						fieldtype: "Select",
+						options: channel_list,
+						reqd: 1,
+					},
+					{
+						fieldname: "message",
+						label: __("Message", null, DINEXT_RAVEN_CTX),
+						fieldtype: "Long Text",
+					},
+					{ fieldtype: "Section Break" },
+					{
+						label: __("Select Attachments", null, DINEXT_RAVEN_CTX),
+						fieldtype: "HTML",
+						fieldname: "select_attachments",
+					},
+				],
+				primary_action_label: __("Send", null, DINEXT_RAVEN_CTX),
+				primary_action(values) {
+					const selected = channel_id.find((row) => row.name === values.channel);
+					if (!selected) {
+						frappe.throw(__("Error sending message", null, DINEXT_RAVEN_CTX));
+						return;
+					}
+					const checked =
+						$(dialog.wrapper).find("[data-file-name]:checked").attr("data-file-name") || "";
+					dinext_raven.send_document_raven({
+						channel: selected.value,
+						message: values.message || "",
+						file_name: checked,
+						doctype: ctx.doctype,
+						docname: ctx.docname,
+					});
+					dialog.hide();
+				},
+				secondary_action_label: __("Discard", null, DINEXT_RAVEN_CTX),
+				secondary_action() {
+					dialog.hide();
+				},
+			});
+			const render_rows = function () {
+				const list = $(dialog.fields_dict.select_attachments.wrapper).find(".attach-list");
+				list.empty();
+				attachments.forEach(function (file) {
+					if (!file.file_name) {
+						return;
+					}
+					list.append(`
+						<p class="flex">
+							<label class="attachment-radio">
+								<input type="radio" name="attachmentRadioGroup" data-file-name="${frappe.utils.escape_html(
+									file.name
+								)}">
+								<span class="ellipsis">${frappe.utils.escape_html(file.file_name)}</span>
+							</label>
+						</p>
+					`);
+				});
+			};
+			frappe.call({
+				method: "frappe.desk.form.load.get_docinfo",
+				args: { doctype: ctx.doctype, name: ctx.docname },
+				callback: function (info) {
+					const docinfo = info.docinfo || info.message || {};
+					attachments = Array.isArray(docinfo.attachments) ? docinfo.attachments.slice() : [];
+					const attach = $(dialog.fields_dict.select_attachments.wrapper);
+					attach.html(`
+						<label class="control-label">${__("Select Attachments", null, DINEXT_RAVEN_CTX)}</label>
+						<div class="attach-list"></div>
+						<p class="add-more-attachments">
+							<button type="button" class="btn btn-xs btn-default">${__(
+								"Add Attachment",
+								null,
+								DINEXT_RAVEN_CTX
+							)}</button>
+						</p>
+					`);
+					attach.find(".add-more-attachments button").on("click", function () {
+						new frappe.ui.FileUploader({
+							doctype: ctx.doctype,
+							docname: ctx.docname,
+							folder: "Home/Attachments",
+							on_success: function (attachment) {
+								attachments.push(attachment);
+								render_rows();
+							},
+						});
+					});
+					render_rows();
 				},
 			});
 			dialog.show();
@@ -430,18 +720,7 @@ dinext_raven.render_discuss = function (frm) {
 				function () {
 					dinext_raven.show_create_channel_dialog(frm, function (channel) {
 						dinext_raven.render_discuss(frm);
-						dinext_raven
-							.wait_for_modals_to_close()
-							.then(function () {
-								return dinext_raven.leave_open_widget_channel();
-							})
-							.then(function () {
-								dinext_raven.refresh_widget_channel_list();
-								return dinext_raven.wait_ms(dinext_raven.WIDGET_CHAT_VIEW_SETTLE_MS);
-							})
-							.then(function () {
-								dinext_raven.open_channel(channel);
-							});
+						dinext_raven.open_created_channel(channel);
 					});
 				}
 			);

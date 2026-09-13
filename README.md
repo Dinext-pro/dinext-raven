@@ -166,10 +166,13 @@ Discuss:
 
 Клик по каналу вызывает `dinext_raven.open_channel`: раскрыть виджет, при
 необходимости выйти из другого канала, выбрать строку списка по
-`channel_name` / `name`. Таймаут 8 с. Фоллбека на `/raven/...` в новой вкладке
-нет. `get_document_channels` и `create_document_channel` отдают `route` вида
-`/raven/Dinext/<channel>`; create дополнительно возвращает `channel_name` и
-`workspace`.
+`channel_name` / `name`. Таймаут 8 с. Если виджета нет (mobile /
+`show_raven_on_desk` выкл.), overlay открывает `channel.route`
+(`/raven/Dinext/<channel>`) в новой вкладке. Если виджет есть, но драйвер не
+открыл канал, показывается alert без новой вкладки. `get_document_channels` и
+`create_document_channel` отдают `route` вида `/raven/Dinext/<channel>`;
+create дополнительно возвращает `channel_name` и `workspace`. Send и Create
+принимают контекст документа без живой Form (`doctype` / `docname`).
 
 Клиентский denylist Discuss: `DocShare`, `Version`, `Activity Log`,
 `Error Log`, `Route History`, `Communication`, `Email Queue`, `Comment`,
@@ -329,7 +332,7 @@ bench --site your-site.local run-tests --app dinext_raven
 - Chat workspace `Dinext`, логотип Dinext, Desk Raven под Settings и карточка Hub.
 - Виджет без лишнего scroll Desk; свёрнутая полоса уже и полупрозрачная.
 - Synced Private-канал Project, Discuss на формах, invite/DocShare-политика.
-- Иконка канала на форме Project и открытие канала внутри виджета (без новой вкладки).
+- Иконка канала на форме Project и открытие канала в виджете; без виджета — `/raven/...` в новой вкладке.
 
 ### Bootstrap overlay
 

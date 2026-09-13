@@ -105,6 +105,43 @@ class TestDinextRavenDocumentChannels(FrappeTestCase):
 			self.assertTrue(share)
 			self.assertEqual(share.read, 1)
 
+	def test_create_linked_channel_survives_share_failure(self):
+		if not frappe.db.exists("DocType", "Raven Channel"):
+			self.skipTest("Raven is not installed")
+		ensure_chat_workspace()
+		doc = frappe.get_doc(
+			{
+				"doctype": "File",
+				"file_name": f"raven-{random_string(6)}.txt",
+				"content": "raven-share-fail",
+				"is_private": 1,
+			}
+		).insert(ignore_permissions=True)
+		assignee = self._make_user("sharefail")
+		doc.db_set("_assign", frappe.as_json([assignee]))
+
+		def boom(*_args, **_kwargs):
+			raise RuntimeError("share hook failed")
+
+		original_add = frappe.share.add
+		frappe.share.add = boom
+		try:
+			channel = create_linked_channel(
+				"File",
+				doc.name,
+				channel_name=f"share-fail-{random_string(4)}",
+				channel_type="Private",
+				is_synced=0,
+				members=[assignee],
+			)
+		finally:
+			frappe.share.add = original_add
+
+		self.assertTrue(frappe.db.exists("Raven Channel", channel))
+		self.assertTrue(
+			frappe.db.exists("Raven Channel Member", {"channel_id": channel, "user_id": assignee})
+		)
+
 	def test_sync_channel_members_adds_and_removes(self):
 		if not frappe.db.exists("DocType", "Raven Channel"):
 			self.skipTest("Raven is not installed")

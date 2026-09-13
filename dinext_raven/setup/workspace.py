@@ -8,12 +8,11 @@ from __future__ import annotations
 import frappe
 from frappe import _
 
-from dinext_common.setup.hub_catalog import SETTINGS_HUB_SETTINGS, register_hub_items
-
 APP_NAME = "dinext_raven"
 CHAT_WORKSPACE = "Dinext"
 VENDOR_CHAT_WORKSPACE = "Raven"
 DESK_WORKSPACE = "Raven"
+SETTINGS_WORKSPACE = "Settings"
 DINEXT_CHAT_LOGO = "/assets/dinext_common/images/DI_SQ_NBG.png"
 TRANSLATION_CONTEXT = "Dinext.Raven"
 
@@ -97,15 +96,42 @@ def _merge_chat_workspace(source: str, target: str) -> None:
 
 
 def nest_desk_workspace() -> None:
-	if "dinext_common" not in frappe.get_installed_apps():
-		return
-	from dinext_common.setup.workspace import configure_workspace_menu
+	if "dinext_common" in frappe.get_installed_apps():
+		try:
+			from dinext_common.setup.workspace import configure_workspace_menu
+		except ImportError:
+			configure_workspace_menu = None
+		if configure_workspace_menu is not None:
+			configure_workspace_menu()
+	_ensure_desk_raven_settings_child()
 
-	configure_workspace_menu()
+
+def _ensure_desk_raven_settings_child() -> None:
+	if not frappe.db.exists("Workspace", DESK_WORKSPACE):
+		return
+	values = frappe.db.get_value(
+		"Workspace",
+		DESK_WORKSPACE,
+		["parent_page", "is_hidden", "public"],
+		as_dict=True,
+	)
+	updates = {}
+	if values.parent_page != SETTINGS_WORKSPACE:
+		updates["parent_page"] = SETTINGS_WORKSPACE
+	if values.is_hidden:
+		updates["is_hidden"] = 0
+	if not values.public:
+		updates["public"] = 1
+	if updates:
+		frappe.db.set_value("Workspace", DESK_WORKSPACE, updates, update_modified=False)
 
 
 def register_settings_hub_card() -> None:
 	if "dinext_common" not in frappe.get_installed_apps():
+		return
+	try:
+		from dinext_common.setup.hub_catalog import SETTINGS_HUB_SETTINGS, register_hub_items
+	except ImportError:
 		return
 	register_hub_items(
 		[RAVEN_HUB_ITEM],

@@ -5,7 +5,6 @@ import frappe
 from frappe.tests.utils import FrappeTestCase
 from frappe.utils import random_string
 
-from dinext_common.setup.hub_catalog import SETTINGS_HUB_SETTINGS
 from dinext_raven.document_channels.api import (
 	create_document_channel,
 	get_accessible_project_channel,
@@ -292,6 +291,12 @@ class TestDinextRavenDocumentChannels(FrappeTestCase):
 		self.assertEqual(frappe.db.get_value("Workspace", DESK_WORKSPACE, "parent_page"), "Settings")
 		self.assertEqual(frappe.db.get_value("Workspace", DESK_WORKSPACE, "is_hidden"), 0)
 		self.assertEqual(frappe.db.get_value("Workspace", DESK_WORKSPACE, "public"), 1)
+		try:
+			from dinext_common.setup.hub_catalog import SETTINGS_HUB_SETTINGS
+		except ImportError:
+			return
+		if not frappe.db.exists("DocType", "Dinext Workspace Settings Item"):
+			return
 		self.assertTrue(
 			frappe.db.exists(
 				"Dinext Workspace Settings Item",

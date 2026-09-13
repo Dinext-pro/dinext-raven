@@ -249,7 +249,18 @@ def grant_read_share_if_needed(doctype: str, name: str, user: str) -> None:
 		return
 	if frappe.db.exists("DocShare", {"share_doctype": doctype, "share_name": name, "user": user}):
 		return
-	frappe.share.add(doctype, name, user, read=1)
+	try:
+		frappe.share.add(doctype, name, user, read=1)
+	except Exception:
+		frappe.log_error(
+			title="dinext_raven grant_read_share_if_needed",
+			message=frappe.get_traceback(),
+		)
+		warn_user(
+			_("Could not share {0} {1} with {2}", context=TRANSLATION_CONTEXT).format(
+				doctype, name, user
+			)
+		)
 
 
 def get_linked_channels(doctype: str, name: str) -> list[dict]:

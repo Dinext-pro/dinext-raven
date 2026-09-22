@@ -21,6 +21,7 @@ class TestDinextRavenTranslations(FrappeTestCase):
 			"Open project channel",
 			"Raven widget is not available",
 			"Could not open the channel in the Raven widget",
+			"Search",
 		):
 			self.assertIn(source, by_source)
 			self.assertTrue(by_source[source]["Перевод"])

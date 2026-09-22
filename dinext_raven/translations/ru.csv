@@ -33,3 +33,4 @@
 "Could not share {0} {1} with {2}","Не удалось выдать доступ {0} {1} пользователю {2}","Dinext.Raven"
 "Channel for {0} {1}","Канал для {0} {1}","Dinext.Raven"
 "Raven messaging settings, users, bots, and integrations.","Настройки Raven: пользователи, боты и интеграции.",""
+"Search","Поиск",""

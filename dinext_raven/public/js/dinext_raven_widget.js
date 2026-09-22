@@ -50,7 +50,39 @@ dinext_raven.observe_main_section = function () {
 	});
 };
 
+dinext_raven.mount_desk_widget = function () {
+	if (dinext_raven._desk_widget_mounted || document.querySelector(".raven-chat")) {
+		return;
+	}
+	if (!(window.frappe && frappe.boot && frappe.boot.show_raven_chat_on_desk)) {
+		return;
+	}
+	if (!frappe.user || !frappe.user.has_role("Raven User")) {
+		return;
+	}
+	if (frappe.is_mobile && frappe.is_mobile()) {
+		return;
+	}
+	const main = document.querySelector(".main-section");
+	if (!main) {
+		return;
+	}
+	dinext_raven._desk_widget_mounted = true;
+	const chat_element = document.createElement("div");
+	chat_element.className = "raven-chat";
+	main.appendChild(chat_element);
+	frappe.require("raven_chat.bundle.jsx").then(function () {
+		if (frappe.raven_chat || !(frappe.ui && frappe.ui.RavenChat)) {
+			return;
+		}
+		frappe.raven_chat = new frappe.ui.RavenChat({
+			wrapper: $(chat_element),
+		});
+	});
+};
+
 dinext_raven.fix_desk_widget = function () {
+	dinext_raven.mount_desk_widget();
 	dinext_raven.inject_widget_styles();
 	dinext_raven.clear_main_section_padding();
 	const chat = document.querySelector(".raven-chat");

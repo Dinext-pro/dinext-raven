@@ -5,3 +5,6 @@
 tags
 node_modules
 __pycache__
+ui-tests/node_modules
+ui-tests/cypress/screenshots
+ui-tests/cypress/videos

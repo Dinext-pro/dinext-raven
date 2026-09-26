@@ -345,7 +345,7 @@ bench --site your-site.local run-tests --app dinext_raven
 dinext_raven/
 ├── AGENTS.md                         # Navigation stub → dinext-docs
 ├── README.md                         # Этот документ
-├── license.txt                       # Лицензия MIT overlay
+├── license.txt                       # Лицензия GPL-3 overlay
 ├── pyproject.toml                    # Пакет, Python >=3.10, ruff
 ├── .pre-commit-config.yaml           # Локальные проверки
 ├── .gitlab-ci.yml                    # include dinext-app.yml
@@ -428,6 +428,6 @@ flowchart LR
 
 ## 📜 Лицензия
 
-Overlay — MIT. Текст: [license.txt](license.txt).
+Overlay — GNU GPL v3. Текст: [license.txt](license.txt).
 
 Upstream Raven — AGPL-3.0 (The Commit Company). Overlay не перелицензирует Raven.

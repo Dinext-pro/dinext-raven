@@ -59,8 +59,11 @@ Dinext не копируются сюда: см. [AGENTS.md](AGENTS.md).
 - Desk Workspace `Raven` остаётся видимым и вкладывается под Settings через
   hook `dinext_settings_workspace_children = ["Raven"]`.
 - Карточка Settings Hub: workspace `Raven`, иконка `message-1`.
-- Виджет: `.raven-chat` fixed, без `padding-bottom` у `.main-section`; свёрнутая
-  полоса уже (2/3 ширины) и полупрозрачная; overflow скрыт.
+- Виджет: на Raven 3.0 overlay сам монтирует `.raven-chat` на Desk (роль
+  `Raven User`, чат включён в настройках Raven, не mobile), если upstream его
+  не создал. Хост fixed, без `padding-bottom` у `.main-section`; свёрнутая
+  полоса уже (2/3 ширины) и полупрозрачная; overflow скрыт. Исходники `raven`
+  для этого не правятся.
 - После SPA-навигации Desk сбрасывается scroll, прячутся stale `.page-container`,
   document overflow блокируется, если видимая страница помещается в viewport.
 - Один synced Private-канал на Project: имя из title, workspace `Dinext`,
@@ -265,8 +268,7 @@ bench --site your-site.local migrate
 - Установленные `dinext_common` и `raven` **до** `dinext_raven`.
 - Python `>=3.10` (`pyproject.toml`).
 - Node.js для `bench build`.
-- Совместимые версии Frappe / Raven поставки Dinext (в этом репозитории не
-  закреплены).
+- Raven 3.0.0 с чистого upstream-checkout. Этот репозиторий не патчит `raven`.
 - Для auto-канала проекта: DocType `Project` и таблица `custom_ts_details`
   (обычно `dinext_projects`).
 - Роль `Raven User` у тех, кто обсуждает документы и открывает канал проекта.
@@ -326,6 +328,10 @@ bench --site your-site.local run-tests --app dinext_raven
 
 Краткая сводка по текущему дереву. Полный журнал — в Git ветки поставки.
 Даты коммитов здесь не выдумываются.
+
+### Raven 3.0
+
+- Bench использует немодифицированный Raven 3.0.0. Desk-виджет поднимает overlay.
 
 ### Overlay workspace, виджет и каналы
 

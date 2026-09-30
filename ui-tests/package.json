@@ -1,0 +1,11 @@
+{
+  "name": "dinext-raven-ui-tests",
+  "private": true,
+  "scripts": {
+    "cypress:run": "cypress run"
+  },
+  "devDependencies": {
+    "cypress": "13.17.0",
+    "cypress-real-events": "1.14.0"
+  }
+}

@@ -1,90 +1,91 @@
+[Русский](README.ru.md)
+
 # Dinext Raven
 
-`dinext_raven` — overlay Dinext над установленным приложением [Raven](https://github.com/The-Commit-Company/raven).
-Кастомизации живут здесь; upstream `raven` остаётся отдельным приложением и не форкается.
+`dinext_raven` is a Dinext overlay on the installed [Raven](https://github.com/The-Commit-Company/raven) application.
+Customizations live here; upstream `raven` remains a separate application and is not forked.
 
-Приложение ставится в существующий [Bench](https://github.com/frappe/bench) вместе с
-`dinext_common` и `raven`. Оно переименовывает chat workspace в `Dinext`, вкладывает
-Desk Workspace `Raven` под Settings, правит виджет чата на Desk и связывает каналы
-с документами (в том числе один synced-канал на Project).
+The application is installed into an existing [Bench](https://github.com/frappe/bench) together with
+`dinext_common` and `raven`. It renames the chat workspace to `Dinext`, nests
+the `Raven` Desk Workspace under Settings, adjusts the Desk chat widget and links channels
+to documents (including one synced channel per Project).
 
 **GitLab:** https://dinext.gitlab.yandexcloud.net/erpnext/dinext/dinext-raven
 
-Этот README — точка входа для установки и сопровождения. Общие agent-правила
-Dinext не копируются сюда: см. [AGENTS.md](AGENTS.md).
+This README is the entry point for installation and maintenance. Common Dinext agent rules
+are not copied here: see [AGENTS.md](AGENTS.md).
 
-## Содержание
+## Contents
 
-- [Обзор и границы ответственности](#обзор-и-границы-ответственности)
-- [Возможности](#возможности)
-- [Установка](#установка)
-- [Использование](#использование)
-- [Технологии](#технологии)
-- [Конфигурация](#конфигурация)
-- [Требования](#требования)
-- [Разработка и сопровождение](#разработка-и-сопровождение)
-- [Документация](#документация)
-- [Благодарности](#благодарности)
-- [История изменений](#история-изменений)
-- [Структура репозитория](#структура-репозитория)
-- [Схема взаимодействия](#схема-взаимодействия)
-- [Лицензия](#лицензия)
+- [Overview and responsibilities](#-overview-and-responsibilities)
+- [Features](#-features)
+- [Installation](#-installation)
+- [Usage](#-usage)
+- [Technologies](#-technologies)
+- [Configuration](#-configuration)
+- [Requirements](#-requirements)
+- [Development and maintenance](#-development-and-maintenance)
+- [Documentation](#-documentation)
+- [Changelog](#-changelog)
+- [Repository structure](#-repository-structure)
+- [Interaction diagram](#-interaction-diagram)
+- [License](#-license)
 
-## 📖 Обзор и границы ответственности
+## 📖 Overview and responsibilities
 
-На практике overlay делает следующее:
+In practice, the overlay does the following:
 
-- после install/migrate приводит chat workspace к имени `Dinext` и ставит логотип
+- after install/migrate, sets the chat workspace name to `Dinext` and applies the logo
   Dinext;
-- регистрирует Desk Workspace `Raven` как ребёнка Settings и карточку Settings Hub;
-- держит виджет Raven на Desk без лишнего scroll страницы;
-- создаёт и синхронизирует Private-канал проекта по составу команды;
-- на сохранённых формах заменяет «Send a Raven» на Discuss и открывает каналы
-  внутри виджета.
+- registers the `Raven` Desk Workspace as a Settings child and adds a Settings Hub card;
+- keeps the Raven widget on Desk without unnecessary page scrolling;
+- creates and synchronizes a project's Private channel based on team membership;
+- replaces Send a Raven with Discuss on saved forms and opens channels
+  inside the widget.
 
-В экосистеме Dinext ответственность разделена так:
+Responsibilities are divided in the Dinext ecosystem as follows:
 
-| Приложение | Ответственность |
+| Application | Responsibility |
 | --- | --- |
-| `raven` | Каналы, сообщения, виджет, роли `Raven User`, UI `/raven`. Overlay его не заменяет. |
-| `dinext_common` | Desk-меню, Settings Hub, `configure_workspace_menu`, хук `dinext_settings_workspace_children`. |
-| `dinext_raven` | Overlay: workspace, виджет, связанные каналы, Discuss, иконка на форме Project. |
-| `dinext_projects` | Не required. Поле `Project.custom_ts_details` нужно для auto-канала проекта; без него Project-hooks — no-op. |
+| `raven` | Channels, messages, widget, `Raven User` roles, `/raven` UI. The overlay does not replace it. |
+| `dinext_common` | Desk menus, Settings Hub, `configure_workspace_menu`, the `dinext_settings_workspace_children` hook. |
+| `dinext_raven` | Overlay: workspace, widget, linked channels, Discuss, Project form icon. |
+| `dinext_projects` | Not required. The `Project.custom_ts_details` field is needed for the automatic project channel; without it, Project hooks are no-ops. |
 
-## ✨ Возможности
+## ✨ Features
 
-- Chat workspace `Raven` переименовывается или сливается в `Dinext`; логотип —
-  `/assets/dinext_common/images/DI_SQ_NBG.png`. Desk Workspace `Raven` не
-  переименовывается и не удаляется.
-- Desk Workspace `Raven` остаётся видимым и вкладывается под Settings через
+- The `Raven` chat workspace is renamed or merged into `Dinext`; the logo is
+  `/assets/dinext_common/images/DI_SQ_NBG.png`. The `Raven` Desk Workspace is neither
+  renamed nor deleted.
+- The `Raven` Desk Workspace remains visible and is nested under Settings through
   hook `dinext_settings_workspace_children = ["Raven"]`.
-- Карточка Settings Hub: workspace `Raven`, иконка `message-1`.
-- Виджет: на Raven 3.0 overlay сам монтирует `.raven-chat` на Desk (роль
-  `Raven User`, чат включён в настройках Raven, не mobile), если upstream его
-  не создал. Хост fixed, без `padding-bottom` у `.main-section`; свёрнутая
-  полоса уже (2/3 ширины) и полупрозрачная; overflow скрыт. Исходники `raven`
-  для этого не правятся.
-- После SPA-навигации Desk сбрасывается scroll, прячутся stale `.page-container`,
-  document overflow блокируется, если видимая страница помещается в viewport.
-- Один synced Private-канал на Project: имя из title, workspace `Dinext`,
-  участники из актуальных строк `custom_ts_details` (без `virtual_worker`,
-  в окне `pt_valid_from` / `pt_valid_for`).
-- Backfill каналов проектов на install/migrate; archive связанных каналов при
-  trash Project; Cancel канал не архивирует.
-- Discuss на timeline сохранённых документов (роль `Raven User` или Administrator):
-  «Отправить в чат/канал», «Создать канал»; при одном канале — иконка, при
-  нескольких — меню «Каналы».
-- Создание связанного не-synced канала (Private / Public / Open) с invite только
-  для пользователей, у которых уже есть отношение к документу.
-- Иконка `message-1` на сохранённой форме Project сразу перед Print, если
-  текущий пользователь — член synced неархивного канала и может его читать.
-- Открытие канала раскрывает Desk-виджет и выбирает канал по отображаемому
-  имени. Если виджета нет — alert, новая вкладка не открывается.
-- Русские переводы видимых строк в `translations/ru.csv`, контекст `Dinext.Raven`.
+- Settings Hub card: workspace `Raven`, icon `message-1`.
+- Widget: on Raven 3.0, the overlay mounts `.raven-chat` on Desk itself (`Raven User`
+  role, chat enabled in Raven settings, not mobile) if upstream has not
+  created it. The host is fixed, without `.main-section` `padding-bottom`; the collapsed
+  bar is narrower (2/3 width) and translucent; overflow is hidden. The `raven` source
+  is not edited for this.
+- After Desk SPA navigation, scroll is reset, stale `.page-container` elements are hidden,
+  and document overflow is locked when the visible page fits in the viewport.
+- One synced Private channel per Project: name from the title, workspace `Dinext`,
+  members from current `custom_ts_details` rows (excluding `virtual_worker`,
+  within the `pt_valid_from` / `pt_valid_for` window).
+- Project channel backfill on install/migrate; linked channels are archived when
+  Project is trashed; Cancel does not archive the channel.
+- Discuss on the timeline of saved documents (`Raven User` role or Administrator):
+  Send to Chat/Channel and Create Channel; one channel produces an icon,
+  multiple channels produce a Channels menu.
+- Creation of a linked non-synced channel (Private / Public / Open), with invitations limited
+  to users who already have a relationship with the document.
+- A `message-1` icon on a saved Project form immediately before Print, if
+  the current user belongs to the synced, non-archived channel and can read it.
+- Opening a channel expands the Desk widget and selects the channel by its display
+  name. If there is no widget, an alert is shown and no new tab opens.
+- Russian translations of visible strings in `translations/ru.csv`, context `Dinext.Raven`.
 
-## 🚀 Установка
+## 🚀 Installation
 
-`install-app dinext_raven` падает, если на сайте ещё нет `raven`.
+`install-app dinext_raven` fails if the site does not yet have `raven`.
 
 ```bash
 cd /path/to/your/bench
@@ -96,200 +97,197 @@ bench build --app dinext_raven
 bench --site your-site.local clear-cache
 ```
 
-После `after_install` и каждой `after_migrate` вызывается
+After `after_install` and each `after_migrate`, the following is called:
 `dinext_raven.setup.workspace.setup_dinext_raven`: rename/merge chat workspace,
-логотип, nest Desk Raven, карточка Hub, backfill каналов проектов.
+logo, Desk Raven nesting, Hub card, project channel backfill.
 
-Тот же setup повторяет патч `dinext_raven.patches.v0_0.setup_dinext_raven`.
+The same setup is repeated by the `dinext_raven.patches.v0_0.setup_dinext_raven` patch.
 
-Ephemeral app CI клонирует upstream Raven с GitHub по SHA-pin в Control Center
-`inventory/app-ci-dependencies.yaml`. Этот репозиторий — только overlay, не форк
-Raven. Pin не добавляет Raven или `dinext_raven` в production-membership сайтов.
+Ephemeral app CI clones upstream Raven from GitHub using a pinned SHA. This repository is only an overlay, not a fork
+of Raven. The pin does not add Raven or `dinext_raven` to sites' production membership.
 
-Если web-процесс запущен с Gunicorn `--preload`, после изменений Python
-перезапустите web worker.
+If the web process runs with Gunicorn `--preload`, restart the web worker after
+Python changes.
 
-## 🛠️ Использование
+## 🛠️ Usage
 
-### Chat workspace и Settings
+### Chat workspace and Settings
 
-После migrate:
+After migrate:
 
-- в Raven UI workspace называется `Dinext`, не `Raven`;
-- Desk Workspace `Raven` виден под Settings (настройки, пользователи, боты,
-  интеграции);
-- на Settings Hub есть карточка «Raven».
+- in the Raven UI, the workspace is called `Dinext`, not `Raven`;
+- the `Raven` Desk Workspace is visible under Settings (settings, users, bots,
+  integrations);
+- Settings Hub has a Raven card.
 
-Если на сайте уже есть и `Raven`, и `Dinext` как `Raven Workspace`, overlay
-переносит каналы и членов в `Dinext` и удаляет дубль `Raven`.
+If both `Raven` and `Dinext` already exist on the site as `Raven Workspace` records, the overlay
+moves channels and members into `Dinext` and deletes the duplicate `Raven`.
 
-### Виджет Desk
+### Desk widget
 
-Глобальные assets из `hooks.py`:
+Global assets from `hooks.py`:
 
 - `public/css/dinext_raven.css`
 - `public/js/dinext_raven_widget.js`
 - `public/js/dinext_raven_discuss.js`
 
-Виджет переносится в `document.body`, если Raven вставил его внутрь
-`.main-section`. Свёрнутая полоса: ширина `2/3` от `--raven-content-width`
-(по умолчанию 400px), opacity `0.7`, на hover/focus — `1`. Развёрнутый контейнер
-ограничен `min(84vh, 100dvh - 48px)`.
+The widget moves to `document.body` if Raven inserted it inside
+`.main-section`. The collapsed bar is `2/3` of `--raven-content-width`
+(400px by default), with opacity `0.7`, rising to `1` on hover/focus. The expanded container
+is limited to `min(84vh, 100dvh - 48px)`.
 
-### Discuss на форме
+### Discuss on the form
 
-На сохранённом документе, который можно обсуждать, timeline показывает
-`.dinext-raven-timeline-controls` вместо кнопки Send a Raven. Меню Discuss
-и Channels — Desk `inner-group-button` (как grouped `add_inner_button`),
-не самодельный `btn-group`.
+On a saved document that supports discussion, the timeline shows
+`.dinext-raven-timeline-controls` instead of the Send a Raven button. Discuss
+and Channels menus are Desk `inner-group-button` controls (like grouped `add_inner_button`),
+rather than a custom `btn-group`.
 
-`get_document_channels` отдаёт только неархивные связанные каналы, которые
-текущий пользователь может открыть в виджете по правилам Raven (Private —
-член канала, Public/Open — член chat workspace). Обход Administrator в
-`frappe.has_permission` сюда не входит. 0/1/many на timeline считается по
-этому списку. Discuss остаётся, даже если доступных каналов нет.
+`get_document_channels` returns only non-archived linked channels that
+the current user can open in the widget under Raven's rules (Private —
+channel member; Public/Open — chat workspace member). The Administrator bypass in
+`frappe.has_permission` does not apply here. The timeline's 0/1/many count uses
+this list. Discuss remains available even if there are no accessible channels.
 
-| Доступных каналов | UI |
+| Accessible channels | UI |
 | --- | --- |
-| 0 | Только меню Discuss |
-| 1 | Иконка канала + Discuss |
-| 2+ | Меню Channels + Discuss |
+| 0 | Discuss menu only |
+| 1 | Channel icon + Discuss |
+| 2+ | Channels menu + Discuss |
 
 Discuss:
 
-- **Отправить в чат/канал** — клик по скрытой `.send-raven-button` (диалог
+- **Send to Chat/Channel** — clicks the hidden `.send-raven-button` (dialog
   upstream Raven);
-- **Создать канал** — имя, тип, MultiSelect приглашённых из
-  `get_invite_candidates`. После создания overlay сбрасывает кэш списка
-  виджета (`frappe.raven_chat` remount) и сразу вызывает
-  `dinext_raven.open_channel` для нового канала. Если в виджете уже открыт
-  другой канал, overlay сначала выходит из него штатной кнопкой back, затем
-  remount и открывает новый. Timeline Discuss/Channels перерисовывается в том
-  же callback.
+- **Create Channel** — name, type, MultiSelect invitees from
+  `get_invite_candidates`. After creation, the overlay clears the widget's list cache
+  (remounting `frappe.raven_chat`) and immediately calls
+  `dinext_raven.open_channel` for the new channel. If another channel is already open
+  in the widget, the overlay first leaves it through the standard back button, then
+  remounts and opens the new one. Timeline Discuss/Channels controls are redrawn in the
+  same callback.
 
-Клик по каналу вызывает `dinext_raven.open_channel`: раскрыть виджет, при
-необходимости выйти из другого канала, выбрать строку списка по
-`channel_name` / `name`. Таймаут 8 с. Если виджета нет (mobile /
-`show_raven_on_desk` выкл.), overlay открывает `channel.route`
-(`/raven/Dinext/<channel>`) в новой вкладке. Если виджет есть, но драйвер не
-открыл канал, показывается alert без новой вкладки. `get_document_channels` и
-`create_document_channel` отдают `route` вида `/raven/Dinext/<channel>`;
-create дополнительно возвращает `channel_name` и `workspace`. Send и Create
-принимают контекст документа без живой Form (`doctype` / `docname`).
+Clicking a channel calls `dinext_raven.open_channel`: expand the widget, leave
+another channel if necessary, and select the list row by
+`channel_name` / `name`. Timeout: 8 seconds. If the widget is absent (mobile /
+`show_raven_on_desk` off), the overlay opens `channel.route`
+(`/raven/Dinext/<channel>`) in a new tab. If the widget exists but the driver did not
+open the channel, an alert appears without a new tab. `get_document_channels` and
+`create_document_channel` return a `route` in the form `/raven/Dinext/<channel>`;
+create additionally returns `channel_name` and `workspace`. Send and Create
+accept document context without a live Form (`doctype` / `docname`).
 
-Клиентский denylist Discuss: `DocShare`, `Version`, `Activity Log`,
+Client-side Discuss denylist: `DocShare`, `Version`, `Activity Log`,
 `Error Log`, `Route History`, `Communication`, `Email Queue`, `Comment`,
-`View Log`, `Access Log`, плюс DocType с префиксом `Raven `. Сервер дополнительно
-отклоняет child-таблицы и остальные DocType `Raven *`. `File` разрешён.
-Новый несохранённый документ Discuss не получает.
+`View Log`, `Access Log`, plus DocTypes prefixed with `Raven `. The server additionally
+rejects child tables and other `Raven *` DocTypes. `File` is allowed.
+A new, unsaved document does not receive Discuss controls.
 
-### Канал проекта
+### Project channel
 
 Hooks `Project.after_insert` / `on_update` → `ensure_project_channel`.
-Нужны DocType `Project` и поле `custom_ts_details`. Иначе функция выходит.
+The `Project` DocType and `custom_ts_details` field are required. Otherwise, the function exits.
 
-На сохранённой форме Project scoped-скрипт
-`public/js/dinext_raven_project_form.js` вызывает
-`get_accessible_project_channel`. Иконка `message-1` («Открыть канал проекта»)
-ставится перед Print, только если пользователь:
+On a saved Project form, the scoped script
+`public/js/dinext_raven_project_form.js` calls
+`get_accessible_project_channel`. The `message-1` icon (Open Project Channel)
+is placed before Print only if the user:
 
-- имеет роль `Raven User` (или Administrator);
-- читает Project;
-- состоит в synced неархивном канале и читает `Raven Channel`.
+- has the `Raven User` role (or is Administrator);
+- can read Project;
+- belongs to the synced, non-archived channel and can read `Raven Channel`.
 
-На узкой ширине Desk Frappe прячет `.page-icon-group`;
-`dinext_raven_project_form.css` оставляет видимой только эту иконку.
+At narrow Desk widths, Frappe hides `.page-icon-group`;
+`dinext_raven_project_form.css` keeps only this icon visible.
 
 ### Whitelisted API
 
-| Метод | Назначение |
+| Method | Purpose |
 | --- | --- |
-| `dinext_raven.document_channels.api.get_document_channels` | Связанные не-DM каналы документа и `route` |
-| `dinext_raven.document_channels.api.get_invite_candidates` | Кандидаты invite: assignees, DocShare, пользователи с отношением к документу |
-| `dinext_raven.document_channels.api.create_document_channel` | POST: связанный не-synced канал; члены = assignees + shares + session user + допустимые invitees; ответ `name`, `channel_name`, `workspace`, `route` |
-| `dinext_raven.document_channels.api.get_accessible_project_channel` | Synced канал Project или `null`, если нет доступа |
+| `dinext_raven.document_channels.api.get_document_channels` | Document's linked non-DM channels and `route` |
+| `dinext_raven.document_channels.api.get_invite_candidates` | Invitation candidates: assignees, DocShare, users related to the document |
+| `dinext_raven.document_channels.api.create_document_channel` | POST: linked non-synced channel; members = assignees + shares + session user + permitted invitees; response: `name`, `channel_name`, `workspace`, `route` |
+| `dinext_raven.document_channels.api.get_accessible_project_channel` | Synced Project channel, or `null` if access is unavailable |
 
-Первые три метода требуют роль `Raven User` (или Administrator) и `read` на
-документ. `create_document_channel` не делает канал synced и не подменяет
-project-канал.
+The first three methods require the `Raven User` role (or Administrator) and `read` permission on
+the document. `create_document_channel` does not make the channel synced and does not replace
+the project channel.
 
-### Членство и DocShare
+### Membership and DocShare
 
-`ensure_raven_user` выдаёт роль `Raven User` и документ `Raven User`, затем
-членство в workspace `Dinext`. Пользователи с Role Profile пропускаются с
-предупреждением. Guest не добавляется.
+`ensure_raven_user` grants the `Raven User` role and a `Raven User` document, then
+membership in the `Dinext` workspace. Users with a Role Profile are skipped with a
+warning. Guest is not added.
 
-Invite не создаёт DocShare «чужому». Если у assignee / уже связанного
-пользователя нет `read`, overlay даёт только Read DocShare и не понижает
-существующий share.
+Invitations do not create DocShare for an unrelated user. If an assignee / already related
+user lacks `read`, the overlay grants only Read DocShare and does not downgrade
+an existing share.
 
-## 📦 Технологии
+## 📦 Technologies
 
-- **Backend:** Python 3.10+, Frappe Framework, Document ORM (без raw SQL).
-- **Frontend:** JavaScript Desk (`frappe.ui.form`, `frappe.call`, виджет Raven).
-- **Стили:** CSS assets; точечный inject во виджет для scroll-lock.
-- **Сборка пакета:** `flit_core` в `pyproject.toml`.
-- **Качество кода:** pre-commit (`ruff`, `eslint`, `prettier`, `pre-commit-hooks`).
-- **CI:** include `/ci/dinext-app.yml` из `dinext_control_center` (`main`).
+- **Backend:** Python 3.10+, Frappe Framework, Document ORM (without raw SQL).
+- **Frontend:** Desk JavaScript (`frappe.ui.form`, `frappe.call`, Raven widget).
+- **Styles:** CSS assets; targeted injection into the widget for scroll locking.
+- **Package build:** `flit_core` in `pyproject.toml`.
+- **Code quality:** pre-commit (`ruff`, `eslint`, `prettier`, `pre-commit-hooks`).
 
-## 🔧 Конфигурация
+## 🔧 Configuration
 
-Основная конфигурация — в [dinext_raven/hooks.py](dinext_raven/hooks.py).
+The main configuration is in [dinext_raven/hooks.py](dinext_raven/hooks.py).
 
-Ключевые hooks:
+Key hooks:
 
 - `required_apps = ["dinext_common", "raven"]`
-- `app_include_css` / `app_include_js` — виджет и Discuss на всём Desk
+- `app_include_css` / `app_include_js` — widget and Discuss throughout Desk
 - `doctype_js = {"Project": "public/js/dinext_raven_project_form.js"}`
 - `after_install` / `after_migrate` → `dinext_raven.install`
 - `doc_events.Project` → `document_channels.project`
 - `dinext_settings_workspace_children = ["Raven"]`
 
-Своих ключей `site_config.json` и переменных окружения приложение не объявляет.
-CSS иконки Project подгружается через `frappe.require` на refresh формы, не
-через `app_include_css`.
+The application declares no custom `site_config.json` keys or environment variables.
+Project icon CSS is loaded through `frappe.require` on form refresh, rather than
+through `app_include_css`.
 
-После правок frontend:
+After frontend changes:
 
 ```bash
 bench build --app dinext_raven
 bench --site your-site.local clear-cache
 ```
 
-После правок Python setup/каналов:
+After Python setup/channel changes:
 
 ```bash
 bench --site your-site.local migrate
 ```
 
-## ✅ Требования
+## ✅ Requirements
 
-- [Bench](https://github.com/frappe/bench) с Frappe.
-- Установленные `dinext_common` и `raven` **до** `dinext_raven`.
+- [Bench](https://github.com/frappe/bench) with Frappe.
+- `dinext_common` and `raven` installed **before** `dinext_raven`.
 - Python `>=3.10` (`pyproject.toml`).
-- Node.js для `bench build`.
-- Raven 3.0.0 с чистого upstream-checkout. Этот репозиторий не патчит `raven`.
-- Для auto-канала проекта: DocType `Project` и таблица `custom_ts_details`
-  (обычно `dinext_projects`).
-- Роль `Raven User` у тех, кто обсуждает документы и открывает канал проекта.
-- Для локальных проверок: pre-commit; Python-тесты на сайте с установленным Raven.
+- Node.js for `bench build`.
+- Raven 3.0.0 from a clean upstream checkout. This repository does not patch `raven`.
+- For the automatic project channel: the `Project` DocType and `custom_ts_details` table
+  (usually `dinext_projects`).
+- The `Raven User` role for users who discuss documents and open a project channel.
+- For local checks: pre-commit; Python tests on a site with Raven installed.
 
-## 🤝 Разработка и сопровождение
+## 🤝 Development and maintenance
 
-Перед любым изменением пройдите обязательный OpenSpec lifecycle из
-[AGENTS.md](AGENTS.md). Proposal, design, specs и tasks хранятся в Store
-`dinext-docs` (`openspec/config.yaml` указывает `store: dinext-docs`).
-Локальные `openspec/specs` и `openspec/changes` в этом репозитории не создаются.
+Before any change, follow the mandatory OpenSpec lifecycle in
+[AGENTS.md](AGENTS.md).
+Local `openspec/specs` and `openspec/changes` directories are not created in this repository.
 
 ```bash
 cd apps/dinext_raven
 pre-commit install
 ```
 
-В репозитории: валидность JSON/TOML/YAML, ruff, prettier, eslint, базовая
-гигиена. Markdown исключён из `trailing-whitespace`.
+The repository includes JSON/TOML/YAML validity checks, ruff, prettier, eslint and basic
+hygiene checks. Markdown is excluded from `trailing-whitespace`.
 
-Python-тесты:
+Python tests:
 
 - [dinext_raven/tests/test_document_channels.py](dinext_raven/tests/test_document_channels.py)
 - [dinext_raven/tests/test_translations.py](dinext_raven/tests/test_translations.py)
@@ -298,94 +296,87 @@ Python-тесты:
 bench --site your-site.local run-tests --app dinext_raven
 ```
 
-Не редактируйте исходники `raven` из этого overlay.
+Do not edit the `raven` source from this overlay.
 
-## 📄 Документация
+## 📄 Documentation
 
-- Документация продукта: [docs.dinext.ru](https://docs.dinext.ru)
+- Product documentation: [docs.dinext.ru](https://docs.dinext.ru)
 - Navigation stub: [AGENTS.md](AGENTS.md)
 - Hooks: [dinext_raven/hooks.py](dinext_raven/hooks.py)
 - Install/migrate: [dinext_raven/install.py](dinext_raven/install.py)
 - Workspace setup: [dinext_raven/setup/workspace.py](dinext_raven/setup/workspace.py)
-- Каналы: [dinext_raven/document_channels/service.py](dinext_raven/document_channels/service.py)
+- Channels: [dinext_raven/document_channels/service.py](dinext_raven/document_channels/service.py)
 - API: [dinext_raven/document_channels/api.py](dinext_raven/document_channels/api.py)
 - Project hooks: [dinext_raven/document_channels/project.py](dinext_raven/document_channels/project.py)
-- Виджет: [dinext_raven/public/js/dinext_raven_widget.js](dinext_raven/public/js/dinext_raven_widget.js)
+- Widget: [dinext_raven/public/js/dinext_raven_widget.js](dinext_raven/public/js/dinext_raven_widget.js)
 - Discuss: [dinext_raven/public/js/dinext_raven_discuss.js](dinext_raven/public/js/dinext_raven_discuss.js)
-- Форма Project: [dinext_raven/public/js/dinext_raven_project_form.js](dinext_raven/public/js/dinext_raven_project_form.js)
-- Переводы: [dinext_raven/translations/ru.csv](dinext_raven/translations/ru.csv)
-- Тесты: [dinext_raven/tests/](dinext_raven/tests/)
-- Патч setup: [dinext_raven/patches/v0_0/setup_dinext_raven.py](dinext_raven/patches/v0_0/setup_dinext_raven.py)
+- Project form: [dinext_raven/public/js/dinext_raven_project_form.js](dinext_raven/public/js/dinext_raven_project_form.js)
+- Translations: [dinext_raven/translations/ru.csv](dinext_raven/translations/ru.csv)
+- Tests: [dinext_raven/tests/](dinext_raven/tests/)
+- Setup patch: [dinext_raven/patches/v0_0/setup_dinext_raven.py](dinext_raven/patches/v0_0/setup_dinext_raven.py)
 
-## ❤️ Благодарности
+## 📝 Changelog
 
-- Dinext — брендинг, Desk-меню и Settings Hub
-- [Raven](https://github.com/The-Commit-Company/raven) — The Commit Company
-  (Algocode Technologies Pvt. Ltd.), AGPL-3.0
-- Frappe Framework — роутинг Desk, формы, hooks, роли
-
-## 📝 История изменений
-
-Краткая сводка по текущему дереву. Полный журнал — в Git ветки поставки.
-Даты коммитов здесь не выдумываются.
+A brief summary of the current tree. The full log is in the distribution branch's Git history.
+Commit dates are not invented here.
 
 ### Raven 3.0
 
-- Bench использует немодифицированный Raven 3.0.0. Desk-виджет поднимает overlay.
+- Bench uses unmodified Raven 3.0.0. The Desk widget is provided by the overlay.
 
-### Overlay workspace, виджет и каналы
+### Workspace overlay, widget and channels
 
-- Chat workspace `Dinext`, логотип Dinext, Desk Raven под Settings и карточка Hub.
-- Виджет без лишнего scroll Desk; свёрнутая полоса уже и полупрозрачная.
-- Synced Private-канал Project, Discuss на формах, invite/DocShare-политика.
-- Иконка канала на форме Project и открытие канала в виджете; без виджета — `/raven/...` в новой вкладке.
+- `Dinext` chat workspace, Dinext logo, Desk Raven under Settings and a Hub card.
+- Widget without unnecessary Desk scrolling; a narrower, translucent collapsed bar.
+- Synced Private Project channel, Discuss on forms, invitation/DocShare policy.
+- Project form channel icon and channel opening in the widget; without the widget, `/raven/...` opens in a new tab.
 
 ### Bootstrap overlay
 
-- Пустой product overlay: `required_apps`, Gitflow `develop`, OpenSpec pointer,
+- Empty product overlay: `required_apps`, Gitflow `develop`, OpenSpec pointer,
   ephemeral CI pin Raven.
 
-## 🗂️ Структура репозитория
+## 🗂️ Repository structure
 
 ```text
 dinext_raven/
-├── AGENTS.md                         # Navigation stub → dinext-docs
-├── README.md                         # Этот документ
-├── license.txt                       # Лицензия GPL-3 overlay
-├── pyproject.toml                    # Пакет, Python >=3.10, ruff
-├── .pre-commit-config.yaml           # Локальные проверки
+├── AGENTS.md                         # Agent instructions
+├── README.md                         # This document
+├── license.txt                       # GPL-3 overlay license
+├── pyproject.toml                    # Package, Python >=3.10, ruff
+├── .pre-commit-config.yaml           # Local checks
 ├── .gitlab-ci.yml                    # include dinext-app.yml
-├── openspec/config.yaml              # Указатель на Store dinext-docs
+├── openspec/config.yaml              # OpenSpec configuration
 └── dinext_raven/
     ├── hooks.py                      # required_apps, assets, events, install
     ├── install.py                    # after_install / after_migrate
-    ├── modules.txt                   # Модуль Dinext Raven
+    ├── modules.txt                   # Dinext Raven module
     ├── patches.txt                   # setup_dinext_raven
-    ├── patches/v0_0/                 # Повтор setup на migrate
+    ├── patches/v0_0/                 # Repeat setup on migrate
     ├── setup/workspace.py            # Dinext workspace, nest, Hub
-    ├── document_channels/            # Сервис, API, Project hooks
-    ├── public/css/                   # Виджет и форма Project
-    ├── public/js/                    # Виджет, Discuss, Project toolbar
-    ├── translations/ru.csv           # Русские строки
-    └── tests/                        # Каналы и переводы
+    ├── document_channels/            # Service, API, Project hooks
+    ├── public/css/                   # Widget and Project form
+    ├── public/js/                    # Widget, Discuss, Project toolbar
+    ├── translations/ru.csv           # Russian strings
+    └── tests/                        # Channels and translations
 ```
 
-Основные части:
+Main components:
 
-- `dinext_raven/hooks.py` — зависимости, Desk assets, Project events.
-- `dinext_raven/setup/workspace.py` — rename/merge `Raven Workspace`, логотип,
+- `dinext_raven/hooks.py` — dependencies, Desk assets, Project events.
+- `dinext_raven/setup/workspace.py` — `Raven Workspace` rename/merge, logo,
   nest, Hub.
-- `dinext_raven/document_channels/service.py` — создание канала, члены,
+- `dinext_raven/document_channels/service.py` — channel creation, members,
   DocShare, denylist.
-- `dinext_raven/public/js/dinext_raven_discuss.js` — Discuss и драйвер виджета.
-- `openspec/config.yaml` — pointer на Store; не дублирует specs/changes.
+- `dinext_raven/public/js/dinext_raven_discuss.js` — Discuss and widget driver.
+- `openspec/config.yaml` — Store pointer; does not duplicate specs/changes.
 
-## 🔗 Схема взаимодействия
+## 🔗 Interaction diagram
 
-Bench читает `hooks.py`. Install/migrate настраивают workspace и backfill.
-Формы и иконка Project ходят в whitelist API; открытие канала идёт через виджет.
+Bench reads `hooks.py`. Install/migrate configures the workspace and backfill.
+Forms and the Project icon use the whitelisted API; channels open through the widget.
 
-### Установка и миграция
+### Installation and migration
 
 ```mermaid
 flowchart LR
@@ -402,7 +393,7 @@ flowchart LR
   migrate --> build["bench build --app dinext_raven"]
 ```
 
-### Discuss и создание канала
+### Discuss and channel creation
 
 ```mermaid
 flowchart LR
@@ -419,7 +410,7 @@ flowchart LR
   openBtn --> widget["open_channel in Desk widget"]
 ```
 
-### Project: sync и иконка
+### Project: sync and icon
 
 ```mermaid
 flowchart LR
@@ -432,8 +423,8 @@ flowchart LR
   icon --> widget["open_channel in Desk widget"]
 ```
 
-## 📜 Лицензия
+## 📜 License
 
-Overlay — GNU GPL v3. Текст: [license.txt](license.txt).
+The overlay is GNU GPL v3. Text: [license.txt](license.txt).
 
-Upstream Raven — AGPL-3.0 (The Commit Company). Overlay не перелицензирует Raven.
+Upstream Raven is AGPL-3.0 (The Commit Company). The overlay does not relicense Raven.

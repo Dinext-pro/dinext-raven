@@ -1,5 +1,25 @@
 [Русский](README.ru.md)
 
+<!-- dinext-presentation:start -->
+<p align="center">
+  <a href="https://dinext.ru"><img src="docs/assets/readme/dinext-logo.png" alt="Dinext" width="128"></a>
+</p>
+<h1 align="center">Dinext Raven</h1>
+
+<hr>
+
+<p align="center">Project and document conversations in Dinext, with synchronized team channels and an integrated chat widget.</p>
+
+<p align="center">
+  <img src="docs/assets/readme/overview.png" alt="A project-team conversation with fictional demonstration participants." width="960">
+</p>
+<p align="center"><sub>A project-team conversation with fictional demonstration participants.</sub></p>
+
+<p align="center">
+  <a href="https://dinext.ru">Website</a> · <a href="https://docs.dinext.ru">Documentation</a>
+</p>
+<!-- dinext-presentation:end -->
+
 # Dinext Raven
 
 `dinext_raven` is a Dinext overlay on the installed [Raven](https://github.com/The-Commit-Company/raven) application.

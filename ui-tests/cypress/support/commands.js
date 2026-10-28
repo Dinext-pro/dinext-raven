@@ -108,8 +108,13 @@ Cypress.Commands.add("openWidgetChannel", (channelName) => {
 
 Cypress.Commands.add("switchDeskTheme", (mode) => {
 	cy.window().then((win) => {
-		expect(win.Mousetrap, "desk shortcut handler").to.exist;
-		win.Mousetrap.trigger("shift+ctrl+g");
+		if (win.Mousetrap) {
+			win.Mousetrap.trigger("shift+ctrl+g");
+			return;
+		}
+		expect(win.frappe.ui.ThemeSwitcher, "desk theme switcher").to.be.a("function");
+		win.frappe.theme_switcher = new win.frappe.ui.ThemeSwitcher();
+		win.frappe.theme_switcher.show();
 	});
 	cy.get(".theme-grid", { timeout: 20000 }).should("be.visible");
 	cy.get(`.theme-grid [data-theme="${mode}"]`).first().click({ force: true });

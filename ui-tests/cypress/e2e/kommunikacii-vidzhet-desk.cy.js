@@ -147,6 +147,10 @@ describe("Виджет чата на Desk", () => {
 	});
 
 	it("возвращает сдвинутый виджет после перехода и перезагрузки", () => {
+		cy.on("uncaught:exception", (err) => {
+			// A fresh site throws this from the User list settings request on reload.
+			return !String(err && err.message).includes("reading 'name'");
+		});
 		resetWidgetLeft();
 		dragWidgetHeader(160);
 		cy.get(".raven-chat").then(($chat) => {

@@ -83,8 +83,9 @@ Dinext не копируются сюда: см. [AGENTS.md](AGENTS.md).
 - Виджет: на Raven 3.0 overlay сам монтирует `.raven-chat` на Desk (роль
   `Raven User`, чат включён в настройках Raven, не mobile), если upstream его
   не создал. Хост fixed, без `padding-bottom` у `.main-section`; свёрнутая
-  полоса уже (2/3 ширины) и полупрозрачная; overflow скрыт. Исходники `raven`
-  для этого не правятся.
+  полоса уже (2/3 ширины) и полупрозрачная; overflow скрыт. Полосу можно
+  сдвинуть мышью вдоль нижнего края экрана в свёрнутом и открытом виде;
+  место запоминается в браузере. Исходники `raven` для этого не правятся.
 - После SPA-навигации Desk сбрасывается scroll, прячутся stale `.page-container`,
   document overflow блокируется, если видимая страница помещается в viewport.
 - Один synced Private-канал на Project: имя из title, workspace `Dinext`,
@@ -154,7 +155,8 @@ Raven. Pin не добавляет Raven или `dinext_raven` в production-mem
 Виджет переносится в `document.body`, если Raven вставил его внутрь
 `.main-section`. Свёрнутая полоса: ширина `2/3` от `--raven-content-width`
 (по умолчанию 400px), opacity `0.7`, на hover/focus — `1`. Развёрнутый контейнер
-ограничен `min(84vh, 100dvh - 48px)`.
+ограничен `min(84vh, 100dvh - 48px)`. Полосу можно сдвинуть мышью вдоль нижнего
+края в свёрнутом и открытом виде; место запоминается в браузере.
 
 ### Discuss на форме
 
@@ -347,7 +349,7 @@ bench --site your-site.local run-tests --app dinext_raven
 ### Overlay workspace, виджет и каналы
 
 - Chat workspace `Dinext`, логотип Dinext, Desk Raven под Settings и карточка Hub.
-- Виджет без лишнего scroll Desk; свёрнутая полоса уже и полупрозрачная.
+- Виджет без лишнего scroll Desk; свёрнутая полоса уже, полупрозрачная и сдвигается вдоль нижнего края.
 - Synced Private-канал Project, Discuss на формах, invite/DocShare-политика.
 - Иконка канала на форме Project и открытие канала в виджете; без виджета — `/raven/...` в новой вкладке.
 

@@ -42,6 +42,25 @@
 	opacity: 1;
 }
 
+.raven-header {
+	cursor: grab;
+	touch-action: none;
+}
+
+.raven-header .btn,
+.raven-header button,
+.raven-header a {
+	cursor: pointer;
+}
+
+.raven-chat.dinext-raven-dragging .raven-header,
+.raven-chat.dinext-raven-dragging .raven-header .btn,
+.raven-chat.dinext-raven-dragging .raven-header button,
+.raven-chat.dinext-raven-dragging .raven-header a {
+	cursor: grabbing;
+	user-select: none;
+}
+
 html.dinext-raven-no-page-scroll {
 	overflow-y: hidden !important;
 }

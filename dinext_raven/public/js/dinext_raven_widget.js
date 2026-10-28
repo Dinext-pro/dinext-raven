@@ -6,6 +6,204 @@ dinext_raven._body_height_observer = null;
 dinext_raven._router_bound = false;
 dinext_raven.WIDGET_STYLE_ID = "dinext-raven-widget-scroll-fix";
 dinext_raven.SCROLL_SLACK_PX = 12;
+dinext_raven.DEFAULT_WIDGET_LEFT = 60;
+dinext_raven.DRAG_THRESHOLD_PX = 6;
+dinext_raven.WIDGET_LEFT_KEY_PREFIX = "dinext_raven.desk_widget_left:";
+dinext_raven._drag = null;
+dinext_raven._suppress_click = false;
+dinext_raven._drag_bound = false;
+dinext_raven._window_resize_bound = false;
+dinext_raven._widget_resize_observer = null;
+dinext_raven._observed_chat = null;
+
+dinext_raven.widget_left_key = function () {
+	const user = window.frappe && frappe.session && frappe.session.user;
+	return dinext_raven.WIDGET_LEFT_KEY_PREFIX + (user || "Guest");
+};
+
+dinext_raven.read_widget_left = function () {
+	try {
+		if (!window.localStorage) {
+			return dinext_raven.DEFAULT_WIDGET_LEFT;
+		}
+		const raw = localStorage.getItem(dinext_raven.widget_left_key());
+		if (raw == null || raw === "") {
+			return dinext_raven.DEFAULT_WIDGET_LEFT;
+		}
+		const left = Number(raw);
+		return Number.isFinite(left) ? left : dinext_raven.DEFAULT_WIDGET_LEFT;
+	} catch (e) {
+		return dinext_raven.DEFAULT_WIDGET_LEFT;
+	}
+};
+
+dinext_raven.write_widget_left = function (left) {
+	try {
+		if (window.localStorage) {
+			localStorage.setItem(dinext_raven.widget_left_key(), String(Math.round(left)));
+		}
+	} catch (e) {
+		// Storage can be unavailable in private mode.
+	}
+};
+
+dinext_raven.widget_max_left = function (chat) {
+	const width = chat.getBoundingClientRect().width;
+	return Math.max(0, window.innerWidth - width);
+};
+
+dinext_raven.clamp_widget_left = function (left, chat) {
+	return Math.min(Math.max(0, left), dinext_raven.widget_max_left(chat));
+};
+
+dinext_raven.apply_widget_left = function (chat) {
+	chat = chat || document.querySelector(".raven-chat");
+	if (!chat || dinext_raven._drag) {
+		return;
+	}
+	const left = Math.round(dinext_raven.clamp_widget_left(dinext_raven.read_widget_left(), chat));
+	chat.style.left = left + "px";
+	chat.style.bottom = "0px";
+};
+
+dinext_raven.observe_widget_size = function () {
+	if (!window.ResizeObserver) {
+		return;
+	}
+	const chat = document.querySelector(".raven-chat");
+	if (!chat || dinext_raven._observed_chat === chat) {
+		return;
+	}
+	if (dinext_raven._widget_resize_observer) {
+		dinext_raven._widget_resize_observer.disconnect();
+	}
+	dinext_raven._observed_chat = chat;
+	dinext_raven._widget_resize_observer = new ResizeObserver(function () {
+		dinext_raven.apply_widget_left(chat);
+	});
+	dinext_raven._widget_resize_observer.observe(chat);
+};
+
+dinext_raven.bind_window_resize = function () {
+	if (dinext_raven._window_resize_bound) {
+		return;
+	}
+	dinext_raven._window_resize_bound = true;
+	window.addEventListener("resize", function () {
+		dinext_raven.apply_widget_left();
+	});
+};
+
+dinext_raven.finish_widget_drag = function (event) {
+	const drag = dinext_raven._drag;
+	if (!drag || (event && event.pointerId !== drag.pointerId)) {
+		return;
+	}
+	dinext_raven._drag = null;
+	drag.chat.classList.remove("dinext-raven-dragging");
+	if (drag.header.releasePointerCapture && drag.header.hasPointerCapture) {
+		try {
+			if (drag.header.hasPointerCapture(drag.pointerId)) {
+				drag.header.releasePointerCapture(drag.pointerId);
+			}
+		} catch (e) {
+			// Capture may already be gone.
+		}
+	}
+	if (!drag.moved) {
+		return;
+	}
+	const left = Math.round(dinext_raven.clamp_widget_left(drag.chat.getBoundingClientRect().left, drag.chat));
+	drag.chat.style.left = left + "px";
+	drag.chat.style.bottom = "0px";
+	dinext_raven.write_widget_left(left);
+	dinext_raven._suppress_click = true;
+	setTimeout(function () {
+		dinext_raven._suppress_click = false;
+	}, 0);
+};
+
+dinext_raven.bind_widget_drag = function () {
+	if (dinext_raven._drag_bound) {
+		return;
+	}
+	dinext_raven._drag_bound = true;
+
+	document.addEventListener(
+		"pointerdown",
+		function (event) {
+			if (dinext_raven._drag) {
+				return;
+			}
+			if (event.pointerType === "mouse" && event.button !== 0) {
+				return;
+			}
+			const target = event.target;
+			if (!target || !target.closest) {
+				return;
+			}
+			const header = target.closest(".raven-header");
+			const chat = header && header.closest(".raven-chat");
+			if (!header || !chat) {
+				return;
+			}
+			dinext_raven._drag = {
+				pointerId: event.pointerId,
+				startX: event.clientX,
+				originLeft: chat.getBoundingClientRect().left,
+				chat: chat,
+				header: header,
+				moved: false,
+			};
+		},
+		true
+	);
+
+	document.addEventListener(
+		"pointermove",
+		function (event) {
+			const drag = dinext_raven._drag;
+			if (!drag || event.pointerId !== drag.pointerId) {
+				return;
+			}
+			const dx = event.clientX - drag.startX;
+			if (!drag.moved) {
+				if (Math.abs(dx) < dinext_raven.DRAG_THRESHOLD_PX) {
+					return;
+				}
+				drag.moved = true;
+				drag.chat.classList.add("dinext-raven-dragging");
+				if (drag.header.setPointerCapture) {
+					try {
+						drag.header.setPointerCapture(event.pointerId);
+					} catch (e) {
+						// Capture can fail if the pointer already ended.
+					}
+				}
+			}
+			event.preventDefault();
+			const left = Math.round(dinext_raven.clamp_widget_left(drag.originLeft + dx, drag.chat));
+			drag.chat.style.left = left + "px";
+			drag.chat.style.bottom = "0px";
+		},
+		{ capture: true, passive: false }
+	);
+
+	document.addEventListener("pointerup", dinext_raven.finish_widget_drag, true);
+	document.addEventListener("pointercancel", dinext_raven.finish_widget_drag, true);
+	document.addEventListener(
+		"click",
+		function (event) {
+			if (!dinext_raven._suppress_click) {
+				return;
+			}
+			dinext_raven._suppress_click = false;
+			event.preventDefault();
+			event.stopPropagation();
+		},
+		true
+	);
+};
 
 dinext_raven.inject_widget_styles = function () {
 	if (document.getElementById(dinext_raven.WIDGET_STYLE_ID)) {
@@ -89,6 +287,10 @@ dinext_raven.fix_desk_widget = function () {
 	if (chat && chat.parentElement !== document.body) {
 		document.body.appendChild(chat);
 	}
+	dinext_raven.bind_widget_drag();
+	dinext_raven.bind_window_resize();
+	dinext_raven.apply_widget_left(chat);
+	dinext_raven.observe_widget_size();
 };
 
 dinext_raven.reset_desk_scroll = function () {

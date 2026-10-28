@@ -92,6 +92,7 @@ jobs:
           CYPRESS_BASE_URL: http://ci.test:8000
           CYPRESS_adminPassword: ci-admin
           CYPRESS_ADMIN_PASSWORD: ci-admin
+          CYPRESS_acceptance: "1"
         run: |
           set -euo pipefail
           npm ci

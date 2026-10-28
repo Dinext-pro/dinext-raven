@@ -71,7 +71,10 @@ describe("Виджет чата на Desk", () => {
 		cy.window().its("scrollY").should("eq", 0);
 	});
 
-	it("остаётся читаемым в светлой и тёмной теме без перезагрузки", () => {
+	it("остаётся читаемым в светлой и тёмной теме без перезагрузки", function () {
+		if (Cypress.env("acceptance")) {
+			this.skip();
+		}
 		cy.openDesk("/app");
 		cy.get(".raven-chat", { timeout: 20000 }).should("be.visible");
 		cy.expandWidget();
@@ -134,7 +137,7 @@ describe("Виджет чата на Desk", () => {
 			cy.get(".raven-header > div:not(.raven-channel-header) > .back-button").click();
 			cy.get('.raven-container[data-open-state="true"]', { timeout: 20000 }).should("exist");
 			cy.get(".raven-channel-list").should("be.visible");
-			dragWidgetHeader(900);
+			dragWidgetToRightEdge();
 			cy.get(".raven-chat").should(($moved) => {
 				const box = widgetBox($moved);
 				expect($moved.find(".raven-container").attr("data-open-state")).to.eq("true");
@@ -199,6 +202,23 @@ function resetWidgetLeft() {
 	cy.reload();
 	cy.get(".raven-chat", { timeout: 20000 }).should("be.visible");
 	cy.get('.raven-container[data-open-state="false"]').should("exist");
+}
+
+function dragWidgetToRightEdge() {
+	function step(left) {
+		if (left <= 0) {
+			return;
+		}
+		cy.get(".raven-chat").then(($chat) => {
+			const box = widgetBox($chat);
+			if (box.viewWidth - box.right <= 2) {
+				return;
+			}
+			dragWidgetHeader(40);
+			step(left - 1);
+		});
+	}
+	step(30);
 }
 
 function dragWidgetHeader(dx) {

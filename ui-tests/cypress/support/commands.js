@@ -124,6 +124,10 @@ Cypress.Commands.add("switchDeskTheme", (mode) => {
 			win.frappe.theme_switcher.hide();
 		}
 	});
+	cy.document().then((doc) => {
+		doc.getElementById("driver-page-overlay")?.remove();
+		doc.querySelectorAll(".driver-popover").forEach((node) => node.remove());
+	});
 	cy.get(".raven-chat").should("be.visible");
 });
 

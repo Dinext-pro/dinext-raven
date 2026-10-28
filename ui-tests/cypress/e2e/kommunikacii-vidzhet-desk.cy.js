@@ -202,11 +202,17 @@ function resetWidgetLeft() {
 }
 
 function dragWidgetHeader(dx) {
-	cy.get(".raven-header").realMouseDown({ position: "center", scrollBehavior: false });
-	cy.get(".raven-header").realMouseMove(dx, 0, {
-		position: "center",
-		keepMouseDownButton: "left",
-		scrollBehavior: false,
-	});
-	cy.get(".raven-header").realMouseUp({ position: "center", scrollBehavior: false });
+	const step = dx < 0 ? -160 : 160;
+	let remaining = dx;
+	while (remaining !== 0) {
+		const part = Math.abs(remaining) > 160 ? step : remaining;
+		cy.get(".raven-header").realMouseDown({ position: "center", scrollBehavior: false });
+		cy.get(".raven-header").realMouseMove(part, 0, {
+			position: "center",
+			keepMouseDownButton: "left",
+			scrollBehavior: false,
+		});
+		cy.get(".raven-header").realMouseUp({ position: "center", scrollBehavior: false });
+		remaining -= part;
+	}
 }

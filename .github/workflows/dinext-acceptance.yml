@@ -73,6 +73,7 @@ jobs:
           cd "$bench"
           command -v bench
           bench use ci.test
+          bench --site ci.test execute frappe.db.set_value --args '["Raven Settings", "Raven Settings", "push_notification_service", "Frappe Cloud"]'
           echo "127.0.0.1 ci.test" | sudo tee -a /etc/hosts >/dev/null
           nohup bench serve --port 8000 >"$RUNNER_TEMP/bench-serve.log" 2>&1 &
           nohup node apps/frappe/socketio.js >"$RUNNER_TEMP/socketio.log" 2>&1 &

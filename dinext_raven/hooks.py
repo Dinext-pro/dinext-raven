@@ -25,9 +25,9 @@ required_apps = ["dinext_common", "raven"]
 # ------------------
 
 # include js, css files in header of desk.html
-app_include_css = "/assets/dinext_raven/css/dinext_raven.css?v=discuss-dropdown-1"
+app_include_css = "/assets/dinext_raven/css/dinext_raven.css?v=desk-widget-drag-1"
 app_include_js = [
-	"/assets/dinext_raven/js/dinext_raven_widget.js?v=desk-widget-mount-1",
+	"/assets/dinext_raven/js/dinext_raven_widget.js?v=desk-widget-drag-1",
 	"/assets/dinext_raven/js/dinext_raven_discuss.js?v=kanban-card-raven-1",
 ]
 

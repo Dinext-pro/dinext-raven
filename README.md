@@ -83,8 +83,9 @@ Responsibilities are divided in the Dinext ecosystem as follows:
 - Widget: on Raven 3.0, the overlay mounts `.raven-chat` on Desk itself (`Raven User`
   role, chat enabled in Raven settings, not mobile) if upstream has not
   created it. The host is fixed, without `.main-section` `padding-bottom`; the collapsed
-  bar is narrower (2/3 width) and translucent; overflow is hidden. The `raven` source
-  is not edited for this.
+  bar is narrower (2/3 width) and translucent; overflow is hidden. The bar can be
+  dragged along the bottom edge when collapsed or expanded, and the browser remembers
+  its place. The `raven` source is not edited for this.
 - After Desk SPA navigation, scroll is reset, stale `.page-container` elements are hidden,
   and document overflow is locked when the visible page fits in the viewport.
 - One synced Private channel per Project: name from the title, workspace `Dinext`,
@@ -154,7 +155,8 @@ Global assets from `hooks.py`:
 The widget moves to `document.body` if Raven inserted it inside
 `.main-section`. The collapsed bar is `2/3` of `--raven-content-width`
 (400px by default), with opacity `0.7`, rising to `1` on hover/focus. The expanded container
-is limited to `min(84vh, 100dvh - 48px)`.
+is limited to `min(84vh, 100dvh - 48px)`. The bar can be dragged along the bottom
+edge when collapsed or expanded; the browser remembers its place.
 
 ### Discuss on the form
 
@@ -347,7 +349,7 @@ Commit dates are not invented here.
 ### Workspace overlay, widget and channels
 
 - `Dinext` chat workspace, Dinext logo, Desk Raven under Settings and a Hub card.
-- Widget without unnecessary Desk scrolling; a narrower, translucent collapsed bar.
+- Widget without unnecessary Desk scrolling; a narrower, translucent collapsed bar that can be dragged along the bottom edge.
 - Synced Private Project channel, Discuss on forms, invitation/DocShare policy.
 - Project form channel icon and channel opening in the widget; without the widget, `/raven/...` opens in a new tab.
 

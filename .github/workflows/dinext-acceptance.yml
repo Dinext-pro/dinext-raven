@@ -71,9 +71,10 @@ jobs:
           set -euo pipefail
           bench="$RUNNER_TEMP/dinext-test-bench"
           cd "$bench"
-          ./env/bin/bench use ci.test
+          command -v bench
+          bench use ci.test
           echo "127.0.0.1 ci.test" | sudo tee -a /etc/hosts >/dev/null
-          nohup ./env/bin/bench serve --port 8000 >"$RUNNER_TEMP/bench-serve.log" 2>&1 &
+          nohup bench serve --port 8000 >"$RUNNER_TEMP/bench-serve.log" 2>&1 &
           nohup node apps/frappe/socketio.js >"$RUNNER_TEMP/socketio.log" 2>&1 &
           for _ in $(seq 1 90); do
             if curl -sf -o /dev/null "http://ci.test:8000/login"; then
